@@ -1,0 +1,59 @@
+# Written by `pubkit sync` from the ci block of pubkit.json. Do not edit:
+# change pubkit.json and run `pubkit sync`.
+name: main
+
+on:
+  push: { branches: [main] }
+
+permissions:
+  contents: read
+
+jobs:
+  # Whether the merge queue already passed this commit: then the jobs
+  # it ran are skipped, and nothing here tests less than the queue did.
+  tested:
+    name: ci
+    uses: Sustenaut/pubkit/.github/workflows/job-tested.yml@15d51b4568e7f5782f5f394b9f5d629464c4a288 # v0.26.1
+    with: {"workflow": ".github/workflows/pr.yml"}
+    permissions:
+      actions: read
+      contents: read
+
+  checks:
+    name: ci
+    needs: [tested]
+    if: ${{ needs.tested.outputs.tested != 'true' }}
+    uses: Sustenaut/pubkit/.github/workflows/job-service-checks.yml@15d51b4568e7f5782f5f394b9f5d629464c4a288 # v0.26.1
+
+  tests:
+    name: ci
+    needs: [tested]
+    if: ${{ needs.tested.outputs.tested != 'true' }}
+    uses: Sustenaut/pubkit/.github/workflows/job-service-tests.yml@15d51b4568e7f5782f5f394b9f5d629464c4a288 # v0.26.1
+    with: {"setup": "python -m pip install --quiet uv==0.12.18 && make venv widget", "test": "make test"}
+
+  sonar:
+    name: ci
+    needs: [tested, tests]
+    if: ${{ !failure() && !cancelled() }}
+    uses: Sustenaut/pubkit/.github/workflows/job-sonar.yml@15d51b4568e7f5782f5f394b9f5d629464c4a288 # v0.26.1
+    permissions:
+      actions: read
+      contents: read
+    with: {"reports": "sonar.python.coverage.reportPaths=*.xml sonar.javascript.lcov.reportPaths=lcov.info", "coverage-run": "${{ needs.tested.outputs.run-id }}"}
+    secrets: { SONAR_TOKEN: '${{ secrets.SONAR_TOKEN }}' }
+
+  # The one check a ruleset requires: it passes only when every job
+  # above succeeded or, where the merge queue already passed the
+  # commit, was skipped for it. None is skipped for not being asked for.
+  passed:
+    name: ci / passed
+    if: always()
+    needs: [tested, checks, tests, sonar]
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "$RESULTS"
+          echo "$RESULTS" | jq -e --arg tested "$TESTED" '.tested.result == "success"
+            and all(.[]; .result == "success" or (.result == "skipped" and $tested == "true"))' > /dev/null
+        env: { RESULTS: '${{ toJSON(needs) }}', TESTED: '${{ needs.tested.outputs.tested }}' }
