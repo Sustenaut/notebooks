@@ -1,0 +1,92 @@
+# The notebooks (notebooks_lib/serve.py): each notebook in notebooks/ as a marimo app, code
+# hidden. It trusts the email and access token oauth2-proxy puts in X-Forwarded-Email and
+# X-Forwarded-Access-Token, so nothing but the proxy may reach it: no ingress points here,
+# and admin/network-policy.yaml lets in only the proxy's pods. On each request it asks
+# whether the person still has the role notebooks (notebooks_lib/access_check.py).
+# BigQuery is read as notebooks-reader (shared-infra's infra/notebooks.tf), with the key
+# push-secrets.sh puts in the Secret notebooks-secrets, mounted as a file.
+apiVersion: v1
+kind: Service
+metadata:
+  name: app
+spec:
+  selector:
+    app: notebooks
+  ports:
+    - name: http
+      port: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notebooks
+  template:
+    metadata:
+      labels:
+        app: notebooks
+    spec:
+      serviceAccountName: app # service-accounts.yaml: no RBAC, no API token
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: app
+          image: ghcr.io/sustenaut/notebooks
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            # The sign-in client, to read the access state's hash (notebooks_lib/access_check.py).
+            - name: NOTEBOOKS_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: notebooks-oidc
+                  key: client-id
+            - name: NOTEBOOKS_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: notebooks-oidc
+                  key: client-secret
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/run/secrets/google/notebooks-reader.json
+            - name: GOOGLE_CLOUD_PROJECT
+              value: sustenaut
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              memory: 1Gi
+          volumeMounts:
+            - name: google-key
+              mountPath: /var/run/secrets/google
+              readOnly: true
+            # marimo writes its session caches under the home directory.
+            - name: home
+              mountPath: /home/app
+      volumes:
+        - name: google-key
+          secret:
+            secretName: notebooks-secrets
+            items:
+              - key: notebooks-reader-key
+                path: notebooks-reader.json
+            defaultMode: 0400
+        - name: home
+          emptyDir: {}

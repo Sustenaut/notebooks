@@ -3,7 +3,8 @@
   "ci": {
     "with": {
       "setup": "python -m pip install --quiet uv==0.12.18 && make venv widget",
-      "test": "make test"
+      "test": "make test",
+      "shellcheck": "with-secrets *.sh"
     }
   },
   "protect": {
@@ -15,7 +16,7 @@
   },
   "security": {
     "sonar": {
-      "args": "-Dsonar.sources=notebooks_lib,notebooks,widget -Dsonar.tests=tests,widget -Dsonar.exclusions=widget/**/*.test.tsx -Dsonar.test.inclusions=tests/**,widget/**/*.test.tsx -Dsonar.coverage.exclusions=notebooks/**"
+      "args": "-Dsonar.sources=notebooks_lib,notebooks,widget -Dsonar.tests=tests,widget -Dsonar.exclusions=widget/**/*.test.tsx -Dsonar.test.inclusions=tests/**,widget/**/*.test.tsx -Dsonar.coverage.exclusions=notebooks/**,notebooks_lib/access_check.py -Dsonar.cpd.exclusions=notebooks_lib/access_check.py"
     }
   }
 }

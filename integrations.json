@@ -22,6 +22,30 @@
         ".github/workflows/pr.yml"
       ],
       "mode": "required"
+    },
+    {
+      "plugin": "github.ghcr",
+      "paths": [
+        ".github/workflows/deploy.yml",
+        "Dockerfile",
+        "k8s/app.yaml",
+        "k8s/kustomization.yaml"
+      ],
+      "mode": "required"
+    },
+    {
+      "plugin": "letsencrypt.certs",
+      "paths": [
+        "k8s/ingress.yaml"
+      ],
+      "mode": "required"
+    },
+    {
+      "plugin": "tailscale.tailnet",
+      "paths": [
+        ".github/workflows/deploy.yml"
+      ],
+      "mode": "required"
     }
   ],
   "exclude": [
@@ -36,6 +60,15 @@
     {
       "path": "data/prices.json",
       "reason": "The price list: each row names a provider's price page for people to read; nothing calls them"
+    }
+  ],
+  "own_hosts": [
+    "sustenaut.eu"
+  ],
+  "other_secrets": [
+    {
+      "name": "SUSTENAUT_DEPLOY_SSH_KEY",
+      "reason": "An SSH key to our own server"
     }
   ]
 }
