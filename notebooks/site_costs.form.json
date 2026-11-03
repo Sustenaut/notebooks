@@ -1,32 +1,78 @@
 {
   "schema": {
     "type": "object",
-    "required": ["site", "period"],
+    "required": [
+      "period",
+      "projects"
+    ],
     "properties": {
-      "site": {
-        "type": "string",
-        "title": "Site",
-        "oneOf": [
-          { "const": "tartu", "title": "Tartu" },
-          { "const": "parnu", "title": "Pärnu" }
-        ]
-      },
       "period": {
         "type": "object",
         "title": "Period",
-        "required": ["start", "end"],
+        "description": "The days the call log is read for (both included).",
+        "required": [
+          "start",
+          "end"
+        ],
         "properties": {
-          "start": { "type": "string", "format": "date", "title": "From" },
-          "end": { "type": "string", "format": "date", "title": "To" }
+          "start": {
+            "type": "string",
+            "format": "date",
+            "title": "From"
+          },
+          "end": {
+            "type": "string",
+            "format": "date",
+            "title": "To"
+          }
+        }
+      },
+      "projects": {
+        "type": "array",
+        "title": "Call log projects",
+        "uniqueItems": true,
+        "minItems": 1,
+        "items": {
+          "type": "string",
+          "oneOf": [
+            {
+              "const": "integrations",
+              "title": "integrations"
+            },
+            {
+              "const": "visit_ee",
+              "title": "visit.ee"
+            },
+            {
+              "const": "opportunity_site",
+              "title": "opportunity site"
+            },
+            {
+              "const": "business_plan",
+              "title": "business plan"
+            }
+          ]
         }
       }
     }
   },
   "uischema": {
-    "type": "VerticalLayout",
+    "type": "Group",
+    "label": "What to read",
     "elements": [
-      { "type": "Control", "scope": "#/properties/site" },
-      { "type": "Control", "scope": "#/properties/period" }
+      {
+        "type": "HorizontalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/period"
+          },
+          {
+            "type": "Control",
+            "scope": "#/properties/projects"
+          }
+        ]
+      }
     ]
   }
 }

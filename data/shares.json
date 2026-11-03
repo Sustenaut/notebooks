@@ -1,0 +1,101 @@
+{
+  "comment": "Which site carries which shared cost, as weights per fixed price row (normalised per row). Starts as an even split.",
+  "rows": [
+    {
+      "site": "auth",
+      "hetzner-cx33": 1,
+      "hetzner-volume": 1,
+      "hetzner-ipv4": 1,
+      "hetzner-ipv6": 1,
+      "sonarcloud": 1,
+      "github-team": 1,
+      "bitwarden-secrets": 1,
+      "mailbox-mail": 1,
+      "domain-sustenaut-eu": 1
+    },
+    {
+      "site": "integrations",
+      "hetzner-cx33": 1,
+      "hetzner-volume": 1,
+      "hetzner-ipv4": 1,
+      "hetzner-ipv6": 1,
+      "sonarcloud": 1,
+      "github-team": 1,
+      "bitwarden-secrets": 1,
+      "mailbox-mail": 1,
+      "domain-sustenaut-eu": 1
+    },
+    {
+      "site": "visit_ee",
+      "hetzner-cx33": 1,
+      "hetzner-volume": 1,
+      "hetzner-ipv4": 1,
+      "hetzner-ipv6": 1,
+      "sonarcloud": 1,
+      "github-team": 1,
+      "bitwarden-secrets": 1,
+      "mailbox-mail": 1,
+      "domain-sustenaut-eu": 1
+    },
+    {
+      "site": "opportunity_site",
+      "hetzner-cx33": 1,
+      "hetzner-volume": 1,
+      "hetzner-ipv4": 1,
+      "hetzner-ipv6": 1,
+      "sonarcloud": 1,
+      "github-team": 1,
+      "bitwarden-secrets": 1,
+      "mailbox-mail": 1,
+      "domain-sustenaut-eu": 1
+    },
+    {
+      "site": "business_plan",
+      "hetzner-cx33": 1,
+      "hetzner-volume": 1,
+      "hetzner-ipv4": 1,
+      "hetzner-ipv6": 1,
+      "sonarcloud": 1,
+      "github-team": 1,
+      "bitwarden-secrets": 1,
+      "mailbox-mail": 1,
+      "domain-sustenaut-eu": 1
+    },
+    {
+      "site": "pub",
+      "hetzner-cx33": 1,
+      "hetzner-volume": 1,
+      "hetzner-ipv4": 1,
+      "hetzner-ipv6": 1,
+      "sonarcloud": 1,
+      "github-team": 1,
+      "bitwarden-secrets": 1,
+      "mailbox-mail": 1,
+      "domain-sustenaut-eu": 1
+    },
+    {
+      "site": "estimate",
+      "hetzner-cx33": 1,
+      "hetzner-volume": 1,
+      "hetzner-ipv4": 1,
+      "hetzner-ipv6": 1,
+      "sonarcloud": 1,
+      "github-team": 1,
+      "bitwarden-secrets": 1,
+      "mailbox-mail": 1,
+      "domain-sustenaut-eu": 1
+    },
+    {
+      "site": "notebooks",
+      "hetzner-cx33": 1,
+      "hetzner-volume": 1,
+      "hetzner-ipv4": 1,
+      "hetzner-ipv6": 1,
+      "sonarcloud": 1,
+      "github-team": 1,
+      "bitwarden-secrets": 1,
+      "mailbox-mail": 1,
+      "domain-sustenaut-eu": 1
+    }
+  ]
+}

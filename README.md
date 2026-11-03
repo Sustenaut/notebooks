@@ -19,19 +19,34 @@ which needs Node 20.19 or later). Online, BigQuery is reached with the machine's
 
 | Path | What it is |
 |---|---|
-| `notebooks/<name>.py` | A notebook. `site_costs.py` is a placeholder showing the pieces together |
+| `notebooks/<name>.py` | A notebook: `site_costs.py`, what each site costs as its usage grows |
 | `notebooks/<name>.form.json` | A notebook's form: `{"schema": <JSON Schema>, "uischema": <JSON Forms UI schema>}` |
-| `queries/<name>.sql` | A query. Every value is a named parameter (`@site`) |
-| `samples/<name>.csv` | A query's sample result, read in offline mode (`.parquet` and `.json` work too) |
-| `notebooks_lib/` | The helpers: `bigquery.Runner`, `forms.load_form`, `widget.SchemaFormWidget` |
+| `queries/<name>.sql` | A query. Every value is a named parameter (`@projects`) |
+| `samples/<name>.csv` | A query's sample result, read in offline mode (`.parquet` and `.json` work too). Made up by `samples/make_samples.py`: no real data is committed |
+| `data/` | The Site costs model's starting values: `prices.json` (each row with its source and date), `shares.json`, `not_measured.json` |
+| `notebooks_lib/` | The helpers: `bigquery.Runner`, `forms.load_form`, `widget.SchemaFormWidget`, and `costs`, the Site costs model |
 | `widget/` | The widget's front end, built into `notebooks_lib/static/` (git-ignored) |
+
+## Site costs
+
+What each site costs a month, split into fixed shared costs (the server, volume, IP, subscriptions, split by
+`data/shares.json`) and usage costs (beyond each free allowance, split by each site's usage); what the call log
+shows of usage (calls per day per project and plugin, files written and load jobs per two-minute cycle); and how
+each site's cost moves as its usage grows from 1x to 1000x, with the steps marked: a free allowance running out,
+a call log table loading every cycle (720 of BigQuery's 1,500 load jobs a day), the server's next type. Google's
+own bill shows once the billing export exists; until then it says there is no billing data yet.
+
+A price that could not be read from the provider's page is `null` in `data/prices.json`, with a note saying so.
+It counts as unknown, not zero: the notebook lists it beside the totals, which leave it out. Page requests are
+not ingested yet, so Workers, Pages and R2 usage are entries in the form's "Not measured" tab, and so is the
+server's load today.
 
 ## Queries
 
 ```python
 from notebooks_lib.bigquery import Runner
 
-result = Runner().run("site_costs", site="tartu", start=date(2026, 3, 1), end=date(2026, 3, 31))
+result = Runner().run("calls_per_day", start=date(2026, 10, 1), end=date(2026, 10, 31), projects=["visit_ee"])
 result.frame, result.bytes_estimated, result.bytes_billed
 ```
 

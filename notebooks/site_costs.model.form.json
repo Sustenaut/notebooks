@@ -1,0 +1,486 @@
+{
+  "schema": {
+    "type": "object",
+    "required": [
+      "multipliers",
+      "load_now",
+      "headroom",
+      "prices",
+      "shares",
+      "not_measured"
+    ],
+    "properties": {
+      "multipliers": {
+        "type": "object",
+        "title": "Usage multiplier per site",
+        "properties": {
+          "auth": {
+            "type": "integer",
+            "title": "auth",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 1
+          },
+          "integrations": {
+            "type": "integer",
+            "title": "integrations",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 1
+          },
+          "visit_ee": {
+            "type": "integer",
+            "title": "visit.ee",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 1
+          },
+          "opportunity_site": {
+            "type": "integer",
+            "title": "opportunity site",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 1
+          },
+          "business_plan": {
+            "type": "integer",
+            "title": "business plan",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 1
+          },
+          "pub": {
+            "type": "integer",
+            "title": "pub",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 1
+          },
+          "estimate": {
+            "type": "integer",
+            "title": "estimate",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 1
+          },
+          "notebooks": {
+            "type": "integer",
+            "title": "notebooks",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 1
+          }
+        }
+      },
+      "load_now": {
+        "type": "integer",
+        "title": "Server load now, %",
+        "description": "How much of the cx33's CPU and memory the sites use today. Not measured yet: read it from the server.",
+        "minimum": 0,
+        "maximum": 100,
+        "default": 30
+      },
+      "headroom": {
+        "type": "integer",
+        "title": "Next type above, %",
+        "description": "The load, as a share of a server type, at which the next type is needed.",
+        "minimum": 50,
+        "maximum": 100,
+        "default": 80
+      },
+      "notebook_runs_month": {
+        "type": "integer",
+        "title": "Notebook runs a month",
+        "description": "Each run reads eight call log tables, billed at least 10 MiB each.",
+        "minimum": 0,
+        "default": 100
+      },
+      "prices": {
+        "type": "array",
+        "title": "Price list",
+        "items": {
+          "type": "object",
+          "required": [
+            "id",
+            "item",
+            "kind"
+          ],
+          "properties": {
+            "provider": {
+              "type": "string",
+              "title": "Provider"
+            },
+            "item": {
+              "type": "string",
+              "title": "Item"
+            },
+            "quantity": {
+              "type": "number",
+              "title": "Quantity",
+              "minimum": 0
+            },
+            "free": {
+              "type": "number",
+              "title": "Free allowance",
+              "minimum": 0
+            },
+            "price_eur": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "title": "Price € per unit",
+              "minimum": 0
+            },
+            "step_fee_eur": {
+              "type": "number",
+              "title": "Plan fee €",
+              "minimum": 0
+            },
+            "id": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "fixed",
+                "usage",
+                "server"
+              ]
+            },
+            "metric": {
+              "type": "string"
+            },
+            "unit": {
+              "type": "string"
+            },
+            "per": {
+              "type": "string",
+              "enum": [
+                "month",
+                "year",
+                "day"
+              ]
+            },
+            "price": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "currency": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            },
+            "as_of": {
+              "type": "string",
+              "format": "date"
+            },
+            "note": {
+              "type": "string"
+            },
+            "capacity": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        }
+      },
+      "shares": {
+        "type": "array",
+        "title": "Who shares what",
+        "items": {
+          "type": "object",
+          "required": [
+            "site"
+          ],
+          "properties": {
+            "site": {
+              "type": "string",
+              "title": "Site",
+              "enum": [
+                "auth",
+                "integrations",
+                "visit_ee",
+                "opportunity_site",
+                "business_plan",
+                "pub",
+                "estimate",
+                "notebooks"
+              ]
+            },
+            "hetzner-cx33": {
+              "type": "number",
+              "title": "Server cx33",
+              "minimum": 0
+            },
+            "hetzner-volume": {
+              "type": "number",
+              "title": "Volume sustenaut-data",
+              "minimum": 0
+            },
+            "hetzner-ipv4": {
+              "type": "number",
+              "title": "Primary IPv4 sustenaut-v4",
+              "minimum": 0
+            },
+            "hetzner-ipv6": {
+              "type": "number",
+              "title": "Primary IPv6 sustenaut-v6",
+              "minimum": 0
+            },
+            "sonarcloud": {
+              "type": "number",
+              "title": "SonarQube Cloud",
+              "minimum": 0
+            },
+            "github-team": {
+              "type": "number",
+              "title": "GitHub Team",
+              "minimum": 0
+            },
+            "bitwarden-secrets": {
+              "type": "number",
+              "title": "Secrets Manager Teams",
+              "minimum": 0
+            },
+            "mailbox-mail": {
+              "type": "number",
+              "title": "Business Standard mailbox",
+              "minimum": 0
+            },
+            "domain-sustenaut-eu": {
+              "type": "number",
+              "title": "Domain sustenaut.eu",
+              "minimum": 0
+            }
+          }
+        }
+      },
+      "not_measured": {
+        "type": "array",
+        "title": "Usage not measured yet",
+        "items": {
+          "type": "object",
+          "required": [
+            "site"
+          ],
+          "properties": {
+            "site": {
+              "type": "string",
+              "title": "Site",
+              "enum": [
+                "auth",
+                "integrations",
+                "visit_ee",
+                "opportunity_site",
+                "business_plan",
+                "pub",
+                "estimate",
+                "notebooks"
+              ]
+            },
+            "workers_requests_day": {
+              "type": "number",
+              "title": "Workers requests a day",
+              "minimum": 0
+            },
+            "pages_builds_month": {
+              "type": "number",
+              "title": "Pages builds a month",
+              "minimum": 0
+            },
+            "r2_storage_gb": {
+              "type": "number",
+              "title": "R2 GB",
+              "minimum": 0
+            },
+            "r2_writes_day": {
+              "type": "number",
+              "title": "R2 writes a day",
+              "minimum": 0
+            },
+            "r2_reads_day": {
+              "type": "number",
+              "title": "R2 reads a day",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    }
+  },
+  "uischema": {
+    "type": "Categorization",
+    "label": "Cost model",
+    "elements": [
+      {
+        "type": "Category",
+        "label": "Growth",
+        "elements": [
+          {
+            "type": "Label",
+            "text": "How many times today's usage each site has. 1 is today."
+          },
+          {
+            "type": "HorizontalLayout",
+            "elements": [
+              {
+                "type": "Control",
+                "scope": "#/properties/multipliers/properties/auth",
+                "options": {
+                  "slider": true
+                }
+              },
+              {
+                "type": "Control",
+                "scope": "#/properties/multipliers/properties/integrations",
+                "options": {
+                  "slider": true
+                }
+              }
+            ]
+          },
+          {
+            "type": "HorizontalLayout",
+            "elements": [
+              {
+                "type": "Control",
+                "scope": "#/properties/multipliers/properties/visit_ee",
+                "options": {
+                  "slider": true
+                }
+              },
+              {
+                "type": "Control",
+                "scope": "#/properties/multipliers/properties/opportunity_site",
+                "options": {
+                  "slider": true
+                }
+              }
+            ]
+          },
+          {
+            "type": "HorizontalLayout",
+            "elements": [
+              {
+                "type": "Control",
+                "scope": "#/properties/multipliers/properties/business_plan",
+                "options": {
+                  "slider": true
+                }
+              },
+              {
+                "type": "Control",
+                "scope": "#/properties/multipliers/properties/pub",
+                "options": {
+                  "slider": true
+                }
+              }
+            ]
+          },
+          {
+            "type": "HorizontalLayout",
+            "elements": [
+              {
+                "type": "Control",
+                "scope": "#/properties/multipliers/properties/estimate",
+                "options": {
+                  "slider": true
+                }
+              },
+              {
+                "type": "Control",
+                "scope": "#/properties/multipliers/properties/notebooks",
+                "options": {
+                  "slider": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "Category",
+        "label": "Server",
+        "elements": [
+          {
+            "type": "HorizontalLayout",
+            "elements": [
+              {
+                "type": "Control",
+                "scope": "#/properties/load_now",
+                "options": {
+                  "slider": true
+                }
+              },
+              {
+                "type": "Control",
+                "scope": "#/properties/headroom",
+                "options": {
+                  "slider": true
+                }
+              }
+            ]
+          },
+          {
+            "type": "Control",
+            "scope": "#/properties/notebook_runs_month"
+          }
+        ]
+      },
+      {
+        "type": "Category",
+        "label": "Prices",
+        "elements": [
+          {
+            "type": "Label",
+            "text": "Edit a price for this session; sources and dates are in the price list below the charts."
+          },
+          {
+            "type": "Control",
+            "scope": "#/properties/prices",
+            "options": {
+              "columns": [
+                "provider",
+                "item",
+                "quantity",
+                "free",
+                "price_eur",
+                "step_fee_eur"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "type": "Category",
+        "label": "Shares",
+        "elements": [
+          {
+            "type": "Label",
+            "text": "Weights per shared cost; each column is split in proportion. Empty counts as 0."
+          },
+          {
+            "type": "Control",
+            "scope": "#/properties/shares"
+          }
+        ]
+      },
+      {
+        "type": "Category",
+        "label": "Not measured",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/not_measured"
+          }
+        ]
+      }
+    ]
+  }
+}

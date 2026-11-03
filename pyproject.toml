@@ -4,6 +4,7 @@ version = "0.0.0"
 description = "Sustenaut's marimo notebooks: queries on BigQuery and forms drawn with @sustenaut/ui."
 requires-python = ">=3.14"
 dependencies = [
+  "altair>=6",
   "anywidget>=0.11.0",
   "db-dtypes>=1.9.0",
   "google-cloud-bigquery>=3.47.0",
