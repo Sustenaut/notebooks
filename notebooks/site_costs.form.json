@@ -1,0 +1,32 @@
+{
+  "schema": {
+    "type": "object",
+    "required": ["site", "period"],
+    "properties": {
+      "site": {
+        "type": "string",
+        "title": "Site",
+        "oneOf": [
+          { "const": "tartu", "title": "Tartu" },
+          { "const": "parnu", "title": "Pärnu" }
+        ]
+      },
+      "period": {
+        "type": "object",
+        "title": "Period",
+        "required": ["start", "end"],
+        "properties": {
+          "start": { "type": "string", "format": "date", "title": "From" },
+          "end": { "type": "string", "format": "date", "title": "To" }
+        }
+      }
+    }
+  },
+  "uischema": {
+    "type": "VerticalLayout",
+    "elements": [
+      { "type": "Control", "scope": "#/properties/site" },
+      { "type": "Control", "scope": "#/properties/period" }
+    ]
+  }
+}

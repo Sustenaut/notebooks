@@ -1,0 +1,21 @@
+{
+  "kind": "service",
+  "ci": {
+    "with": {
+      "setup": "python -m pip install --quiet uv==0.12.18 && make venv widget",
+      "test": "make test"
+    }
+  },
+  "protect": {
+    "checks": [
+      "ci / passed",
+      "integrations / scan"
+    ],
+    "tags": false
+  },
+  "security": {
+    "sonar": {
+      "args": "-Dsonar.sources=notebooks_lib,notebooks,widget -Dsonar.tests=tests,widget -Dsonar.exclusions=widget/**/*.test.tsx -Dsonar.test.inclusions=tests/**,widget/**/*.test.tsx -Dsonar.coverage.exclusions=notebooks/**"
+    }
+  }
+}

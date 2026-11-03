@@ -1,0 +1,37 @@
+{
+  "uses": [
+    {
+      "plugin": "bitwarden.secrets",
+      "paths": [
+        "with-secrets",
+        "with-secrets.json"
+      ],
+      "mode": "required"
+    },
+    {
+      "plugin": "google.bigquery",
+      "paths": [
+        "notebooks_lib/bigquery.py"
+      ],
+      "mode": "required"
+    },
+    {
+      "plugin": "sonarcloud.scan",
+      "paths": [
+        ".github/workflows/main.yml",
+        ".github/workflows/pr.yml"
+      ],
+      "mode": "required"
+    }
+  ],
+  "exclude": [
+    {
+      "path": "tests/**",
+      "reason": "Fakes and test data"
+    },
+    {
+      "path": "notebooks_lib/static/**",
+      "reason": "The widget's built bundle, git-ignored and built from widget/"
+    }
+  ]
+}

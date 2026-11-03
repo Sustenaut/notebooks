@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.pubkit/
+node_modules/
+coverage/
+.coverage
+notebooks_lib/static/
+__marimo__/
+.env

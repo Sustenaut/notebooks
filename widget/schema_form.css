@@ -1,0 +1,7 @@
+/* The widget's styles: Tailwind's theme and utilities and @sustenaut/ui's tokens, with no preflight, so nothing
+   here restyles the notebook around the widget. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "@sustenaut/ui/theme.css";
+@source "./";

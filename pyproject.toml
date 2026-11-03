@@ -1,0 +1,35 @@
+[project]
+name = "sustenaut-notebooks"
+version = "0.0.0"
+description = "Sustenaut's marimo notebooks: queries on BigQuery and forms drawn with @sustenaut/ui."
+requires-python = ">=3.14"
+dependencies = [
+  "anywidget>=0.11.0",
+  "db-dtypes>=1.9.0",
+  "google-cloud-bigquery>=3.47.0",
+  "jsonschema>=4.26.0",
+  "marimo>=0.25.2",
+  "pandas>=3.1.0",
+  "pyarrow>=26.0.0",
+]
+
+[dependency-groups]
+# The tests, at the versions tests/requirements-pubkit.txt pins for every pubkit repository.
+dev = [
+  "hypothesis==6.170.5",
+  "pytest==9.0.3",
+  "pytest-bdd==8.1.0",
+  "pytest-cov>=7.1.0",
+  "pytest-xdist==3.8.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.18,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "notebooks_lib"
+module-root = ""
+
+[tool.coverage.run]
+source = ["notebooks_lib"]
