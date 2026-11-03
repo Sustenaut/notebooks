@@ -1,0 +1,9 @@
+project,table_name,row_count,size_bytes
+integrations,calls,3604,540600
+integrations,status,43200,4752000
+visit_ee,calls,8893,1333950
+visit_ee,status,43200,4752000
+opportunity_site,calls,662,99300
+opportunity_site,status,43200,4752000
+business_plan,calls,3883,582450
+business_plan,status,43200,4752000

@@ -185,7 +185,22 @@ def test_online_is_the_default_and_makes_its_client_on_first_use(monkeypatch):
     assert runner.client == "client" and runner.client == "client" and made == [1]
 
 
-def test_the_repository_query_has_a_sample():
+@pytest.mark.parametrize(
+    ("name", "values", "wanted"),
+    [
+        ("calls_per_day", {"start": "2026-10-04", "end": "2026-11-02", "projects": ["visit_ee"]}, {"start", "end", "projects"}),
+        ("status_per_day", {"start": "2026-10-04", "end": "2026-11-02", "projects": ["visit_ee"]}, {"start", "end", "projects"}),
+        ("table_storage", {"tables": ["calls"]}, {"tables"}),
+    ],
+)
+def test_the_repository_queries_have_samples(name, values, wanted):
     runner = Runner(offline=True)
-    assert parameter_names(runner.sql("site_costs")) == {"site", "start", "end"}
-    assert not runner.run("site_costs", site="tartu", start="2026-03-01", end="2026-03-31").frame.empty
+    assert parameter_names(runner.sql(name)) == wanted
+    assert not runner.run(name, **values).frame.empty
+
+
+def test_the_billing_query_has_no_sample_until_the_export_exists():
+    runner = Runner(offline=True)
+    assert parameter_names(runner.sql("billing")) == {"month"}
+    with pytest.raises(FileNotFoundError):
+        runner.run("billing", month="202611")

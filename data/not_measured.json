@@ -1,0 +1,70 @@
+{
+  "comment": "Usage the call log does not measure, per site. Page requests are not ingested yet, so these start at zero: put in what a provider's dashboard shows.",
+  "notebook_runs_month": 100,
+  "rows": [
+    {
+      "site": "auth",
+      "workers_requests_day": 0,
+      "pages_builds_month": 0,
+      "r2_storage_gb": 0,
+      "r2_writes_day": 0,
+      "r2_reads_day": 0
+    },
+    {
+      "site": "integrations",
+      "workers_requests_day": 0,
+      "pages_builds_month": 0,
+      "r2_storage_gb": 0,
+      "r2_writes_day": 0,
+      "r2_reads_day": 0
+    },
+    {
+      "site": "visit_ee",
+      "workers_requests_day": 0,
+      "pages_builds_month": 0,
+      "r2_storage_gb": 0,
+      "r2_writes_day": 0,
+      "r2_reads_day": 0
+    },
+    {
+      "site": "opportunity_site",
+      "workers_requests_day": 0,
+      "pages_builds_month": 0,
+      "r2_storage_gb": 0,
+      "r2_writes_day": 0,
+      "r2_reads_day": 0
+    },
+    {
+      "site": "business_plan",
+      "workers_requests_day": 0,
+      "pages_builds_month": 0,
+      "r2_storage_gb": 0,
+      "r2_writes_day": 0,
+      "r2_reads_day": 0
+    },
+    {
+      "site": "pub",
+      "workers_requests_day": 0,
+      "pages_builds_month": 0,
+      "r2_storage_gb": 0,
+      "r2_writes_day": 0,
+      "r2_reads_day": 0
+    },
+    {
+      "site": "estimate",
+      "workers_requests_day": 0,
+      "pages_builds_month": 0,
+      "r2_storage_gb": 0,
+      "r2_writes_day": 0,
+      "r2_reads_day": 0
+    },
+    {
+      "site": "notebooks",
+      "workers_requests_day": 0,
+      "pages_builds_month": 0,
+      "r2_storage_gb": 0,
+      "r2_writes_day": 0,
+      "r2_reads_day": 0
+    }
+  ]
+}

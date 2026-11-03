@@ -32,6 +32,10 @@
     {
       "path": "notebooks_lib/static/**",
       "reason": "The widget's built bundle, git-ignored and built from widget/"
+    },
+    {
+      "path": "data/prices.json",
+      "reason": "The price list: each row names a provider's price page for people to read; nothing calls them"
     }
   ]
 }

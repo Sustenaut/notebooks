@@ -33,12 +33,17 @@ def test_each_notebook_runs_headless_offline(notebook):
     assert done.returncode == 0, done.stdout + done.stderr
 
 
-def test_site_costs_queries_the_form_s_values(monkeypatch):
+def test_site_costs_shows_every_section_offline(monkeypatch):
     monkeypatch.setenv("SUSTENAUT_DATA", "offline")
     spec = importlib.util.spec_from_file_location("site_costs", ROOT / "notebooks" / "site_costs.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     _, defs = module.app.run()
-    assert defs["form"].errors(defs["picker"].value["value"]) == []
-    assert defs["result"].offline
-    assert defs["result"].frame["amount_eur"].sum() == pytest.approx(149.85)
+    # A cell that stops (mo.stop) defines nothing, so every section's names being there means each one ran.
+    assert {"today", "curve", "scenario", "steps", "billing_available"} <= defs.keys()
+    assert defs["billing_available"] is False
+    assert defs["calls"].offline and defs["days"] == 30
+    today = defs["today"]
+    assert set(today.unpriced) == {"Volume sustenaut-data", "Domain sustenaut.eu"}
+    assert today.per_site["total"].sum() == pytest.approx(8.99 + 0.50 + 4 / 1.1216 + 6 / 1.1216 + 4.00, abs=0.01)
+    assert {s.what.split(":")[0] for s in defs["steps"]} >= {"server", "BigQuery batch load jobs"}
