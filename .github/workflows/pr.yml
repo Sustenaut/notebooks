@@ -13,6 +13,7 @@ jobs:
   checks:
     name: ci
     uses: Sustenaut/pubkit/.github/workflows/job-service-checks.yml@15d51b4568e7f5782f5f394b9f5d629464c4a288 # v0.26.1
+    with: {"shellcheck": "with-secrets *.sh"}
 
   tests:
     name: ci

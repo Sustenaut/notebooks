@@ -2,7 +2,7 @@
 NOTEBOOKS := notebooks
 UV := uv run --locked
 
-.PHONY: venv widget lab apps test check-js check-py offline
+.PHONY: venv widget lab apps test check-js check-py offline image
 
 venv: ## the Python environment, from uv.lock
 	uv sync --locked
@@ -30,3 +30,6 @@ check-py:
 	$(UV) pytest -q --cov --cov-report=xml:coverage/coverage.xml tests
 
 test: check-js check-py ## everything CI runs: typecheck, widget and Python tests, marimo check, notebooks run offline
+
+image: ## the site's image, as the deploy workflow builds it
+	podman build -t notebooks .

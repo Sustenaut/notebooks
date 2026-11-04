@@ -1,0 +1,29 @@
+# notebooks.sustenaut.eu through the server's shared Traefik, with a Let's Encrypt
+# certificate (resolver "letsencrypt", set up in shared-infra's infra/cloud-init).
+# Everything goes to oauth2-proxy; nothing routes to the app directly. The name
+# answers here only once shared-infra points it at the server (it still points at
+# Cloud Run until then), so the certificate is issued after that switch.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: notebooks
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.tls.certresolver: letsencrypt
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: notebooks.sustenaut.eu
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: oauth2-proxy
+                port:
+                  name: http
+  tls:
+    - hosts:
+        - notebooks.sustenaut.eu

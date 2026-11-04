@@ -1,0 +1,12 @@
+.git/
+.venv/
+.pubkit/
+node_modules/
+coverage/
+.pytest_cache/
+__pycache__/
+__marimo__/
+notebooks_lib/static/
+samples/
+tests/
+.env

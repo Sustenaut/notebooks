@@ -1,0 +1,86 @@
+# Build and deploy the notebooks site (notebooks.sustenaut.eu) on each merge to main, or by
+# hand. The image goes to GitHub's container registry and holds the notebooks, their queries
+# and forms and the widget's bundle: no key, no token and no data (the BigQuery key is mounted
+# on the server, k8s/app.yaml). Then the manifests in k8s/, rendered with that image, go to
+# the Sustenaut k3s server (shared-infra's infra/hetzner.tf) over SSH, where the deploy key
+# can only run sustenaut-deploy: apply in namespace notebooks and wait. SSH is reachable over
+# Sustenaut's tailnet only, so the job joins it first, as tag:ci.
+#
+# Needs the same secrets and variables as Sustenaut/auth's auth.yml (Sustenaut/auth's
+# README.md, "Deploying"). Without SUSTENAUT_SERVER the image is built and pushed, and
+# nothing is deployed.
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/sustenaut/notebooks
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: Build the image
+        run: docker build -t "${IMAGE}:${GITHUB_SHA}" .
+
+      # The image must start as its own user, hold what the site imports and the widget's
+      # bundle, refuse to serve without the sign-in client, and hold no samples or tests.
+      - name: Check the image
+        run: |
+          docker run --rm "${IMAGE}:${GITHUB_SHA}" sh -c 'test "$(id -u)" = 1000 && python -c "
+          import pathlib, notebooks_lib.serve as serve, notebooks_lib.widget as widget
+          assert widget.BUNDLE.exists()
+          assert serve.notebook_paths()
+          assert not pathlib.Path(\"samples\").exists() and not pathlib.Path(\"tests\").exists()
+          try:
+              serve.from_environment()
+          except RuntimeError:
+              pass
+          else:
+              raise SystemExit(\"served without a sign-in client\")
+          "'
+
+      - name: Push the image
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker push "${IMAGE}:${GITHUB_SHA}"
+
+      - name: Render the manifests
+        working-directory: k8s
+        run: |
+          kustomize edit set image "${IMAGE}=${IMAGE}:${GITHUB_SHA}"
+          kustomize build . > "${RUNNER_TEMP}/notebooks.yaml"
+          grep -q "${IMAGE}:${GITHUB_SHA}" "${RUNNER_TEMP}/notebooks.yaml"
+
+      - name: Join Sustenaut's tailnet
+        if: vars.SUSTENAUT_SERVER != ''
+        uses: tailscale/github-action@6cae46e2d796f265265cfcf628b72a32b4d7cade # v3
+        with:
+          oauth-client-id: ${{ secrets.TS_GH_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_GH_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Deploy to the k3s server
+        if: vars.SUSTENAUT_SERVER != ''
+        env:
+          DEPLOY_KEY: ${{ secrets.SUSTENAUT_DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ vars.SUSTENAUT_KNOWN_HOSTS }}
+          SERVER: ${{ vars.SUSTENAUT_SERVER }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy -o StrictHostKeyChecking=yes "deploy@${SERVER}" notebooks < "${RUNNER_TEMP}/notebooks.yaml"

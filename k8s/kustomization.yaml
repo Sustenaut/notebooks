@@ -1,0 +1,19 @@
+# The notebooks site on the Sustenaut k3s server (shared-infra's infra/hetzner.tf), namespace
+# notebooks: the app (marimo, behind the access check), oauth2-proxy in front of it and the
+# ingress for notebooks.sustenaut.eu.
+# Rendered by .github/workflows/deploy.yml with the image it just built
+# (kustomize edit set image) and applied by sustenaut-deploy on the server.
+# Not here: the Secret notebooks-secrets and the network policy in admin/ (the deploy
+# identity may not manage those), which push-secrets.sh puts in; and the Secret
+# notebooks-oidc (the sign-in client), which register-client.sh puts in.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: notebooks
+resources:
+  - service-accounts.yaml
+  - app.yaml
+  - oauth2-proxy.yaml
+  - ingress.yaml
+images:
+  - name: ghcr.io/sustenaut/notebooks
+    newTag: unset

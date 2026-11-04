@@ -1695,6 +1695,7 @@ dependencies = [
     { name = "marimo" },
     { name = "pandas" },
     { name = "pyarrow" },
+    { name = "uvicorn" },
 ]
 
 [package.dev-dependencies]
@@ -1716,6 +1717,7 @@ requires-dist = [
     { name = "marimo", specifier = ">=0.25.2" },
     { name = "pandas", specifier = ">=3.1.0" },
     { name = "pyarrow", specifier = ">=26.0.0" },
+    { name = "uvicorn", specifier = ">=0.54.0" },
 ]
 
 [package.metadata.requires-dev]

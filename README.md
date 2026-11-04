@@ -8,6 +8,7 @@ make lab       # edit the notebooks (marimo edit)
 make apps      # use them as apps, code hidden (marimo run)
 make offline   # the apps on samples/, without BigQuery
 make test      # what CI runs
+make image     # the site's image, as the deploy workflow builds it
 ```
 
 `make lab` and `make apps` build what they need first: the Python environment from `uv.lock` (`make venv`,
@@ -70,6 +71,51 @@ names each problem by its JSON Pointer.
 
 `@sustenaut/ui` is pinned in `package.json` to the commit that merged its JSON Forms support
 (Sustenaut/ui#4), as there is no release with it yet. Move the pin to a tag once one is cut.
+
+## The site
+
+https://notebooks.sustenaut.eu runs on the Sustenaut k3s server (shared-infra's `infra/hetzner.tf`), namespace
+`notebooks`, as Sustenaut/opportunity-site does:
+
+| Part | What it is |
+|---|---|
+| `Dockerfile` | Node builds the widget's bundle, then a Python image runs `uvicorn notebooks_lib.serve:app` as uid 1000. No key, token or data in it; the package `ghcr.io/sustenaut/notebooks` is public |
+| `notebooks_lib/serve.py` | Each notebook as a marimo app at `/<name>` (code hidden), a page of links at `/`, behind the access check |
+| `notebooks_lib/access_check.py` | A copy of Sustenaut/auth's: on each request and websocket, does the person still have the role `notebooks`? |
+| `k8s/` | The app, oauth2-proxy (team realm, `--allowed-group=notebooks`), the ingress; `admin/` the network policy |
+| `push-secrets.sh` | Puts the Secret `notebooks-secrets` (`notebooks-cookie-secret`, `notebooks-reader-key`) and the network policy in |
+| `register-client.sh` | Adds this site to sustenaut.eu's sign-in client and declares the role `notebooks`; puts the client in the Secret `notebooks-oidc` |
+| `.github/workflows/deploy.yml` | On each merge to main: build, check and push the image, render `k8s/`, deploy over the tailnet |
+
+BigQuery is read as `notebooks-reader` (shared-infra's `infra/notebooks.tf`), which may read the call log
+datasets and `billing` and nothing else; its key is mounted in the app as `GOOGLE_APPLICATION_CREDENTIALS`.
+Who may use the site is the team access page (auth.sustenaut.eu/realms/team/access), the column `notebooks`.
+
+### Going live
+
+In order. Terraform and the scripts run in checkouts beside this one: shared-infra (or `SHARED_INFRA`) and
+Sustenaut/auth (or `AUTH`), signed in to Sustenaut's tailnet.
+
+1. **The reader account.** shared-infra's `infra/notebooks.tf` applied; then its key, from shared-infra,
+   as its `help/setup.md` says ("The notebooks' key"): Bitwarden secret `notebooks-reader-key`.
+2. **Bitwarden** (project Sustenaut): `notebooks-cookie-secret`, from `openssl rand -base64 32 | tr -- '+/' '-_'`.
+3. **The namespace**, once: `ssh root@sustenaut sustenaut-app notebooks`; then `./with-secrets ./push-secrets.sh`.
+4. **The sign-in client**: `./register-client.sh`. sustenaut.eu's client already exists (the opportunity site
+   registered it), so this adds `https://notebooks.sustenaut.eu/oauth2/callback` and the role `notebooks` to it
+   and puts it in the Secret `notebooks-oidc`. If it asks for an approval record instead, follow what it prints.
+5. **Who may use it**: tick `notebooks` for people on the access page (`import-team-access.sh` gave it to
+   everyone in `var.team` if it ran after the role was declared).
+6. **Deploy settings** on this repository, as on Sustenaut/auth ("Deploying"): secrets `SUSTENAUT_DEPLOY_SSH_KEY`,
+   `TS_GH_OAUTH_CLIENT_ID`, `TS_GH_OAUTH_SECRET`; variables `SUSTENAUT_SERVER` = `sustenaut` and
+   `SUSTENAUT_KNOWN_HOSTS`.
+7. **First deploy**: merge, or run the **deploy** workflow. The first push makes the package
+   `ghcr.io/sustenaut/notebooks` private: make it **public** (it holds no secret and no data) and give this
+   repository write access under *Manage Actions access*, then run the workflow again. Check the pods:
+   `ssh root@sustenaut k3s kubectl -n notebooks get pods`.
+8. **DNS** (shared-infra, its own PR): `notebooks` in `pubkit.json`'s `sustenaut.eu` sites moves from the
+   Cloud Run service to `{"provider": "hetzner", "kind": "server", "server": "sustenaut"}`. Once it resolves,
+   Traefik gets the certificate; open https://notebooks.sustenaut.eu and sign in.
+9. **Retire the old site** (business-plan's Cloud Run service, IAP and image registry), as the design says.
 
 ## Tests
 
