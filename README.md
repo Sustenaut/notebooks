@@ -83,7 +83,7 @@ https://notebooks.sustenaut.eu runs on the Sustenaut k3s server (shared-infra's 
 | `notebooks_lib/serve.py` | Each notebook as a marimo app at `/<name>` (code hidden), a page of links at `/`, behind the access check |
 | `notebooks_lib/access_check.py` | A copy of Sustenaut/auth's: on each request and websocket, does the person still have the role `notebooks`? |
 | `k8s/` | The app, oauth2-proxy (team realm, `--allowed-group=notebooks`), the ingress; `admin/` the network policy |
-| `push-secrets.sh` | Puts the Secret `notebooks-secrets` (`notebooks-cookie-secret`, `notebooks-reader-key`) and the network policy in |
+| `push-secrets.sh` | Run as `./pubkit secrets run -- ./push-secrets.sh`: puts the Secret `notebooks-secrets` (`notebooks-cookie-secret`, `notebooks-reader-key`) and the network policy in |
 | `register-client.sh` | Adds this site to sustenaut.eu's sign-in client and declares the role `notebooks`; puts the client in the Secret `notebooks-oidc` |
 | `.github/workflows/deploy.yml` | On each merge to main: build, check and push the image, render `k8s/`, deploy over the tailnet |
 
@@ -93,29 +93,23 @@ Who may use the site is the team access page (auth.sustenaut.eu/realms/team/acce
 
 ### Going live
 
-In order. Terraform and the scripts run in checkouts beside this one: shared-infra (or `SHARED_INFRA`) and
-Sustenaut/auth (or `AUTH`), signed in to Sustenaut's tailnet.
+Each step can run again and changes nothing once done. Commands with secrets run through `./pubkit secrets run`,
+which reads the Bitwarden project in `with-secrets.json` with the read-only token in `.env`. Checkouts of
+shared-infra and Sustenaut/auth sit beside this one, on Sustenaut's tailnet.
 
-1. **The reader account.** shared-infra's `infra/notebooks.tf` applied; then its key, from shared-infra,
-   as its `help/setup.md` says ("The notebooks' key"): Bitwarden secret `notebooks-reader-key`.
-2. **Bitwarden** (project Sustenaut): `notebooks-cookie-secret`, from `openssl rand -base64 32 | tr -- '+/' '-_'`.
-3. **The namespace**, once: `ssh root@sustenaut sustenaut-app notebooks`; then `./with-secrets ./push-secrets.sh`.
-4. **The sign-in client**: `./register-client.sh`. sustenaut.eu's client already exists (the opportunity site
-   registered it), so this adds `https://notebooks.sustenaut.eu/oauth2/callback` and the role `notebooks` to it
-   and puts it in the Secret `notebooks-oidc`. If it asks for an approval record instead, follow what it prints.
-5. **Who may use it**: tick `notebooks` for people on the access page (`import-team-access.sh` gave it to
-   everyone in `var.team` if it ran after the role was declared).
-6. **Deploy settings** on this repository, as on Sustenaut/auth ("Deploying"): secrets `SUSTENAUT_DEPLOY_SSH_KEY`,
-   `TS_GH_OAUTH_CLIENT_ID`, `TS_GH_OAUTH_SECRET`; variables `SUSTENAUT_SERVER` = `sustenaut` and
-   `SUSTENAUT_KNOWN_HOSTS`.
-7. **First deploy**: merge, or run the **deploy** workflow. The first push makes the package
-   `ghcr.io/sustenaut/notebooks` private: make it **public** (it holds no secret and no data) and give this
-   repository write access under *Manage Actions access*, then run the workflow again. Check the pods:
-   `ssh root@sustenaut k3s kubectl -n notebooks get pods`.
-8. **DNS** (shared-infra, its own PR): `notebooks` in `pubkit.json`'s `sustenaut.eu` sites moves from the
-   Cloud Run service to `{"provider": "hetzner", "kind": "server", "server": "sustenaut"}`. Once it resolves,
-   Traefik gets the certificate; open https://notebooks.sustenaut.eu and sign in.
-9. **Retire the old site** (business-plan's Cloud Run service, IAP and image registry), as the design says.
+1. **Once, by hand** (done for notebooks.sustenaut.eu):
+   - the reader account's key, from shared-infra (its `help/setup.md`, "The notebooks' key");
+   - Bitwarden `notebooks-cookie-secret`: 32 random bytes, base64;
+   - the namespace: `ssh root@sustenaut sustenaut-app notebooks`;
+   - the sign-in client: `./register-client.sh`, signing in as the registrant;
+   - who may use it: the column `notebooks` on the team access page;
+   - the package `ghcr.io/sustenaut/notebooks`: public, with this repository's Write under *Manage Actions access*.
+2. **The server's secrets**: `./pubkit secrets run -- ./push-secrets.sh`.
+3. **The deploy settings on GitHub**, from pubkit.json's `"secrets"` (shared-infra's `help/setup.md`, "The
+   deploy settings in Bitwarden", puts the server's three there):
+   `./pubkit secrets run -- ./pubkit app-secrets --check`, then without `--check`.
+4. **Branch protection**: `./pubkit protect Sustenaut/notebooks`.
+5. **Deploy**: merge to main, or run the **deploy** workflow.
 
 ## Tests
 
