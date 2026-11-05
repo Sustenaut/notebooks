@@ -18,5 +18,32 @@
     "sonar": {
       "args": "-Dsonar.sources=notebooks_lib,notebooks,widget -Dsonar.tests=tests,widget -Dsonar.exclusions=widget/**/*.test.tsx -Dsonar.test.inclusions=tests/**,widget/**/*.test.tsx -Dsonar.coverage.exclusions=notebooks/**,notebooks_lib/access_check.py -Dsonar.cpd.exclusions=notebooks_lib/access_check.py"
     }
-  }
+  },
+  "secrets": [
+    {
+      "from": "sustenaut-deploy-ssh-key",
+      "to": "SUSTENAUT_DEPLOY_SSH_KEY",
+      "kind": "secret"
+    },
+    {
+      "from": "TS_GH_OAUTH_CLIENT_ID",
+      "to": "TS_GH_OAUTH_CLIENT_ID",
+      "kind": "secret"
+    },
+    {
+      "from": "TS_GH_OAUTH_SECRET",
+      "to": "TS_GH_OAUTH_SECRET",
+      "kind": "secret"
+    },
+    {
+      "from": "sustenaut-server",
+      "to": "SUSTENAUT_SERVER",
+      "kind": "variable"
+    },
+    {
+      "from": "sustenaut-known-hosts",
+      "to": "SUSTENAUT_KNOWN_HOSTS",
+      "kind": "variable"
+    }
+  ]
 }
