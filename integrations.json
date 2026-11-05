@@ -43,7 +43,8 @@
     {
       "plugin": "tailscale.tailnet",
       "paths": [
-        ".github/workflows/deploy.yml"
+        ".github/workflows/deploy.yml",
+        "pubkit.json"
       ],
       "mode": "required"
     }
