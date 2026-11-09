@@ -142,7 +142,7 @@ def from_environment() -> ASGIApp:
     if not client_id or not client_secret:
         raise RuntimeError(
             "NOTEBOOKS_CLIENT_ID and NOTEBOOKS_CLIENT_SECRET are not set: the site only runs behind oauth2-proxy "
-            "with the sign-in client (register-client.sh). Locally, use `make apps`."
+            "with the sign-in client (the deploy walk, README.md). Locally, use `make apps`."
         )
     return build(AccessCheck(os.environ.get("NOTEBOOKS_REALM", REALM), client_id, client_secret, role=ROLE))
 
