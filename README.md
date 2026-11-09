@@ -102,7 +102,7 @@ Sustenaut/auth checked out beside it, on a machine on the admin tailnet, signed 
 `gh` and `gcloud`:
 
 ```sh
-./with-secrets ./pubkit deploy walk --fulfil --server sustenaut --zones ../shared-infra/pubkit.json
+./with-secrets ./pubdeploy walk --fulfil --server sustenaut --zones ../shared-infra/pubkit.json
 ```
 
 It checks every need, prints the plan, and waits for a typed `yes`; then it makes each
@@ -130,8 +130,8 @@ Some needs it only checks, and says what a person does:
 - **The DNS record** for `notebooks.sustenaut.eu`, in shared-infra's hosting block.
 - **Who may use the site**: the column `notebooks` on the team access page.
 
-`./pubkit deploy walk` without `--fulfil` (or `deploy check`) changes nothing, and
-`./pubkit deploy walk --offline` checks only the files. `.github/workflows/deploy-check.yml`
+`./pubdeploy walk` without `--fulfil` (or `pubdeploy check`) changes nothing, and
+`./pubdeploy walk --offline` checks only the files. `.github/workflows/deploy-check.yml`
 walks the deployment every 30 minutes, read-only, with the deploy key, and writes the walk
 to storage's `plane` tenant; it fails when a need is missing, drift or blocked.
 
