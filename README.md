@@ -83,33 +83,67 @@ https://notebooks.sustenaut.eu runs on the Sustenaut k3s server (shared-infra's 
 | `notebooks_lib/serve.py` | Each notebook as a marimo app at `/<name>` (code hidden), a page of links at `/`, behind the access check |
 | `notebooks_lib/access_check.py` | A copy of Sustenaut/auth's: on each request and websocket, does the person still have the role `notebooks`? |
 | `k8s/` | The app, oauth2-proxy (team realm, `--allowed-group=notebooks`), the ingress; `admin/` the network policy |
-| `push-secrets.sh` | Run as `./pubkit secrets run -- ./push-secrets.sh`: puts the Secret `notebooks-secrets` (`notebooks-cookie-secret`, `notebooks-reader-key`) and the network policy in |
-| `register-client.sh` | Adds this site to sustenaut.eu's sign-in client and declares the role `notebooks`; puts the client in the Secret `notebooks-oidc` |
-| `.github/workflows/deploy.yml` | On each merge to main: build, check and push the image, render `k8s/`, deploy over the tailnet |
+| `.github/workflows/deploy.yml` | Once CI passes on a merge to main: build, check and push the image, render `k8s/`, deploy over the tailnet, once `DEPLOY_NOTEBOOKS` is `on` |
 
 BigQuery is read as `notebooks-reader` (shared-infra's `infra/notebooks.tf`), which may read the call log
 datasets and `billing` and nothing else; its key is mounted in the app as `GOOGLE_APPLICATION_CREDENTIALS`.
 Who may use the site is the team access page (auth.sustenaut.eu/realms/team/access), the column `notebooks`.
 
-### Going live
+## Deploying
 
-Each step can run again and changes nothing once done. Commands with secrets run through `./pubkit secrets run`,
-which reads the Bitwarden project in `with-secrets.json` with the read-only token in `.env`. Checkouts of
-shared-infra and Sustenaut/auth sit beside this one, on Sustenaut's tailnet.
+`.github/workflows/deploy.yml` builds the image on each merge to main, once CI has
+passed, and applies `k8s/` to namespace `notebooks` with pubkit's `k8s-deploy.yml`,
+once `DEPLOY_NOTEBOOKS` is `on`.
 
-1. **Once, by hand** (done for notebooks.sustenaut.eu):
-   - the reader account's key, from shared-infra (its `help/setup.md`, "The notebooks' key");
-   - Bitwarden `notebooks-cookie-secret`: 32 random bytes, base64;
-   - the namespace: `ssh root@sustenaut sustenaut-app notebooks`;
-   - the sign-in client: `./register-client.sh`, signing in as the registrant;
-   - who may use it: the column `notebooks` on the team access page;
-   - the package `ghcr.io/sustenaut/notebooks`: public, with this repository's Write under *Manage Actions access*.
-2. **The server's secrets**: `./pubkit secrets run -- ./push-secrets.sh`.
-3. **The deploy settings on GitHub**, from pubkit.json's `"secrets"` (shared-infra's `help/setup.md`, "The
-   deploy settings in Bitwarden", puts the server's three there):
-   `./pubkit secrets run -- ./pubkit app-secrets --check`, then without `--check`.
-4. **Branch protection**: `./pubkit protect Sustenaut/notebooks`.
-5. **Deploy**: merge to main, or run the **deploy** workflow.
+pubkit.json's `deploy` block lists everything else the deployment needs, and pubkit's
+deploy walk checks each need and makes what it can. To take the site live, or bring it
+back in step, from a checkout of this repository with Sustenaut/shared-infra and
+Sustenaut/auth checked out beside it, on a machine on the admin tailnet, signed in to
+`gh` and `gcloud`:
+
+```sh
+./with-secrets ./pubkit deploy walk --fulfil --server sustenaut --zones ../shared-infra/pubkit.json
+```
+
+It checks every need, prints the plan, and waits for a typed `yes`; then it makes each
+missing need it can, over the admin channel (`ssh root@sustenaut`), and checks it again.
+Every run can run again: what is ready is left alone. In order:
+
+| Need | What the walk does |
+|---|---|
+| the namespace `notebooks` | the server's `sustenaut-app`, which makes it and its deploy identity |
+| `bitwarden.generated` `notebooks-cookie-secret` | oauth2-proxy's cookie secret: a new one of its shape, written to Bitwarden, when it is missing or misshapen |
+| `gcp.service-account-key` `notebooks-reader-key` | the BigQuery key for `notebooks-reader` (shared-infra's `infra/notebooks.tf`): made and written to Bitwarden when it is missing or not one of the account's live keys |
+| the Secret `notebooks-secrets` | made from the cookie secret and the reader key; the app and oauth2-proxy restarted |
+| `auth.sign-in-client` | sustenaut.eu's team-site client in the team realm, role `notebooks`: the approval record written into shared-infra's `infra/auth-approvals.json` when auth.sustenaut.eu wants one, and once the client is issued, the Secret `notebooks-oidc` made from it on the server |
+| `k8s.manifests` | `k8s/admin/network-policy.yaml` applied: only oauth2-proxy's pods may reach the app |
+| the deploy settings | the server's variables and secrets in pubkit.json's `"secrets"` on this repository, checked |
+| `DEPLOY_NOTEBOOKS` and the rollout | the gate on, once everything before it is ready, and `deploy.yml` run and waited for |
+| `service.health` | `https://notebooks.sustenaut.eu/healthz` answers |
+
+A new cookie secret or reader key wants a Bitwarden token that may write: the walk asks
+for it once, at a hidden prompt, and keeps it only in its process. An approval record is
+a change to shared-infra: commit it there, merge, apply, and run the walk again.
+
+Some needs it only checks, and says what a person does:
+
+- **The DNS record** for `notebooks.sustenaut.eu`, in shared-infra's hosting block.
+- **Who may use the site**: the column `notebooks` on the team access page.
+
+`./pubkit deploy walk` without `--fulfil` (or `deploy check`) changes nothing, and
+`./pubkit deploy walk --offline` checks only the files. `.github/workflows/deploy-check.yml`
+walks the deployment every 30 minutes, read-only, with the deploy key, and writes the walk
+to storage's `plane` tenant; it fails when a need is missing, drift or blocked.
+
+### A new server
+
+Before the walk: steps 1 to 7 of Sustenaut/auth's `README.md`, "Deploying" (the server,
+the tailnet, the deploy secrets); `./with-secrets terraform -chdir=infra apply` in
+shared-infra (the reader account, the DNS record and the `auth_team` output); and the
+team realm, with everyone who may use the site holding the role `notebooks`. The ghcr
+package `ghcr.io/sustenaut/notebooks` is **public** and holds no private code, so the
+cluster pulls it without a secret; give this repository write access under *Manage
+Actions access*. Branch protection is `./pubkit protect Sustenaut/notebooks`.
 
 ## Tests
 

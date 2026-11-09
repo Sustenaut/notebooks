@@ -1,6 +1,6 @@
 # oauth2-proxy signs people in with the team realm at auth.sustenaut.eu (Keycloak:
 # a passkey or an emailed code), as the client sustenaut.eu registered for its team
-# sites (register-client.sh puts its id and secret in the Secret notebooks-oidc).
+# sites (the deploy walk puts its id and secret in the Secret notebooks-oidc).
 # It lets in only people with the role notebooks, from the token's access claim (the
 # team access page at auth.sustenaut.eu/realms/team/access is the one list), and refreshes
 # every 4 minutes, which also keeps the access token valid (it lasts 5).

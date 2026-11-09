@@ -3,9 +3,9 @@
 # ingress for notebooks.sustenaut.eu.
 # Rendered by .github/workflows/deploy.yml with the image it just built
 # (kustomize edit set image) and applied by sustenaut-deploy on the server.
-# Not here: the Secret notebooks-secrets and the network policy in admin/ (the deploy
-# identity may not manage those), which push-secrets.sh puts in; and the Secret
-# notebooks-oidc (the sign-in client), which register-client.sh puts in.
+# Not here: the Secrets notebooks-secrets and notebooks-oidc (the sign-in client) and
+# the network policy in admin/ (the deploy identity may not manage those), which the
+# deploy walk puts in (pubkit.json's deploy block, README.md, "Deploying").
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: notebooks

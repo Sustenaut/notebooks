@@ -13,7 +13,7 @@ jobs:
   # it ran are skipped, and nothing here tests less than the queue did.
   tested:
     name: ci
-    uses: Sustenaut/pubkit/.github/workflows/job-tested.yml@d634bd9ba97c6933561e9e7d1ceff5b975e8f22e # v0.28.0
+    uses: Sustenaut/pubkit/.github/workflows/job-tested.yml@01c2711869ce046ec875edee83e575b955cfbabf # v0.31.3
     with: {"workflow": ".github/workflows/pr.yml"}
     permissions:
       actions: read
@@ -23,21 +23,21 @@ jobs:
     name: ci
     needs: [tested]
     if: ${{ needs.tested.outputs.tested != 'true' }}
-    uses: Sustenaut/pubkit/.github/workflows/job-service-checks.yml@d634bd9ba97c6933561e9e7d1ceff5b975e8f22e # v0.28.0
-    with: {"shellcheck": "with-secrets *.sh"}
+    uses: Sustenaut/pubkit/.github/workflows/job-service-checks.yml@01c2711869ce046ec875edee83e575b955cfbabf # v0.31.3
+    with: {"shellcheck": "with-secrets"}
 
   tests:
     name: ci
     needs: [tested]
     if: ${{ needs.tested.outputs.tested != 'true' }}
-    uses: Sustenaut/pubkit/.github/workflows/job-service-tests.yml@d634bd9ba97c6933561e9e7d1ceff5b975e8f22e # v0.28.0
+    uses: Sustenaut/pubkit/.github/workflows/job-service-tests.yml@01c2711869ce046ec875edee83e575b955cfbabf # v0.31.3
     with: {"setup": "python -m pip install --quiet uv==0.12.18 && make venv widget", "test": "make test"}
 
   sonar:
     name: ci
     needs: [tested, tests]
     if: ${{ !failure() && !cancelled() }}
-    uses: Sustenaut/pubkit/.github/workflows/job-sonar.yml@d634bd9ba97c6933561e9e7d1ceff5b975e8f22e # v0.28.0
+    uses: Sustenaut/pubkit/.github/workflows/job-sonar.yml@01c2711869ce046ec875edee83e575b955cfbabf # v0.31.3
     permissions:
       actions: read
       contents: read

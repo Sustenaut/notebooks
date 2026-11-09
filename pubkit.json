@@ -4,7 +4,7 @@
     "with": {
       "setup": "python -m pip install --quiet uv==0.12.18 && make venv widget",
       "test": "make test",
-      "shellcheck": "with-secrets *.sh"
+      "shellcheck": "with-secrets"
     }
   },
   "protect": {
@@ -45,5 +45,53 @@
       "to": "SUSTENAUT_KNOWN_HOSTS",
       "kind": "variable"
     }
-  ]
+  ],
+  "deploy": {
+    "namespace": "notebooks",
+    "host": "notebooks.sustenaut.eu",
+    "workflow": "deploy.yml",
+    "gate": "DEPLOY_NOTEBOOKS",
+    "needs": [
+      {
+        "type": "bitwarden.generated",
+        "name": "notebooks-cookie-secret",
+        "shape": "oauth2-proxy-cookie",
+        "secret": {
+          "name": "notebooks-secrets",
+          "key": "cookie-secret"
+        }
+      },
+      {
+        "type": "gcp.service-account-key",
+        "account": "notebooks-reader",
+        "project": "sustenaut",
+        "bitwarden": "notebooks-reader-key",
+        "secret": {
+          "name": "notebooks-secrets",
+          "key": "notebooks-reader-key",
+          "decode": "base64"
+        }
+      },
+      {
+        "type": "auth.sign-in-client",
+        "realm": "team",
+        "role": "notebooks",
+        "auth": "https://auth.sustenaut.eu/realms/team",
+        "domain": "sustenaut.eu",
+        "host": "notebooks.sustenaut.eu",
+        "state": "/root/.config/sustenaut-auth/team-sustenaut.eu",
+        "client_name": "sustenaut.eu team sites",
+        "register_app": "../auth/register-app.py",
+        "approvals": "../shared-infra/infra/auth-approvals.json",
+        "access": "https://auth.sustenaut.eu/realms/team/access",
+        "secret": {
+          "name": "notebooks-oidc"
+        }
+      },
+      {
+        "type": "k8s.manifests",
+        "path": "k8s/admin/network-policy.yaml"
+      }
+    ]
+  }
 }

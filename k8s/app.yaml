@@ -4,7 +4,7 @@
 # and admin/network-policy.yaml lets in only the proxy's pods. On each request it asks
 # whether the person still has the role notebooks (notebooks_lib/access_check.py).
 # BigQuery is read as notebooks-reader (shared-infra's infra/notebooks.tf), with the key
-# push-secrets.sh puts in the Secret notebooks-secrets, mounted as a file.
+# the deploy walk puts in the Secret notebooks-secrets, mounted as a file.
 apiVersion: v1
 kind: Service
 metadata:
