@@ -8,13 +8,6 @@
       "mode": "required"
     },
     {
-      "plugin": "github.actions-oidc",
-      "paths": [
-        ".github/workflows/deploy-check.yml"
-      ],
-      "mode": "required"
-    },
-    {
       "plugin": "google.bigquery",
       "paths": [
         "notebooks_lib/bigquery.py"
