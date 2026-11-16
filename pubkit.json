@@ -4,7 +4,8 @@
     "with": {
       "setup": "python -m pip install --quiet uv==0.12.18 && make venv widget",
       "test": "make test",
-      "shellcheck": "with-secrets"
+      "shellcheck": "with-secrets",
+      "sonar-args": "-Dsonar.tests=tests,widget -Dsonar.test.inclusions=tests/**,widget/**/*.steps.tsx -Dsonar.exclusions=tests/**,widget/**/*.steps.tsx"
     }
   },
   "protect": {
