@@ -88,7 +88,7 @@ def values_become_typed_query_parameters():
 def values_without_a_bigquery_type_are_refused():
     """Every case of the parametrized test this was, in turn."""
     for value in [None, [], [1, "a"], object()]:
-        value = value.values[0] if hasattr(value, "values") else value
+        value = value.values[0] if type(value).__name__ == "ParameterSet" else value
         _case_values_without_a_bigquery_type_are_refused(value=value)
 
 
@@ -155,7 +155,7 @@ def parameters_must_match_the_sql(queries):
         ({"site": "a", "start": "x"}, "no value for end"),
         ({"site": "a", "start": "x", "end": "y", "limit": 3}, "no @parameter for limit"),
     ]:
-        case0 = case0.values if hasattr(case0, "values") else case0
+        case0 = case0.values if type(case0).__name__ == "ParameterSet" else case0
         _case_parameters_must_match_the_sql(values=case0[0], message=case0[1], queries=queries)
 
 
@@ -187,7 +187,7 @@ def offline_reads_the_sample_and_never_makes_a_client(queries, tmp_path, monkeyp
 def offline_reads_json_and_parquet_samples(queries, tmp_path):
     """Every case of the parametrized test this was, in turn."""
     for suffix in [".json", ".parquet"]:
-        suffix = suffix.values[0] if hasattr(suffix, "values") else suffix
+        suffix = suffix.values[0] if type(suffix).__name__ == "ParameterSet" else suffix
         case_dir = tmp_path / f"case-{len(list(tmp_path.iterdir()))}"
         case_dir.mkdir()
         _case_offline_reads_json_and_parquet_samples(suffix=suffix, queries=queries, tmp_path=case_dir)
@@ -226,7 +226,7 @@ def the_repository_queries_have_samples():
         ("status_per_day", {"start": "2026-10-04", "end": "2026-11-02", "projects": ["visit_ee"]}, {"start", "end", "projects"}),
         ("table_storage", {"tables": ["calls"]}, {"tables"}),
     ]:
-        case0 = case0.values if hasattr(case0, "values") else case0
+        case0 = case0.values if type(case0).__name__ == "ParameterSet" else case0
         _case_the_repository_queries_have_samples(name=case0[0], values=case0[1], wanted=case0[2])
 
 

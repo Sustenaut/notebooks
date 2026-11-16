@@ -88,7 +88,7 @@ def the_widget_needs_its_built_bundle(monkeypatch, tmp_path):
 def every_form_is_valid_json_schema_with_a_ui_schema():
     """Every case of the parametrized test this was, in turn."""
     for path in sorted(FORMS.glob("*.form.json")):
-        path = path.values[0] if hasattr(path, "values") else path
+        path = path.values[0] if type(path).__name__ == "ParameterSet" else path
         _case_every_form_is_valid_json_schema_with_a_ui_schema(path=path)
 
 

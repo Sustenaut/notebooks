@@ -36,7 +36,7 @@ def marimo_check_passes():
 def each_notebook_runs_headless_offline():
     """Every case of the parametrized test this was, in turn."""
     for notebook in NOTEBOOKS:
-        notebook = notebook.values[0] if hasattr(notebook, "values") else notebook
+        notebook = notebook.values[0] if type(notebook).__name__ == "ParameterSet" else notebook
         _case_each_notebook_runs_headless_offline(notebook=notebook)
 
 
