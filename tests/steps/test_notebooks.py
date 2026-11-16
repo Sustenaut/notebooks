@@ -7,17 +7,22 @@ import sys
 from pathlib import Path
 
 import pytest
+from pytest_bdd import scenarios, then
 
-ROOT = Path(__file__).resolve().parent.parent
+scenarios("notebooks.feature")
+
+ROOT = Path(__file__).resolve().parents[2]
 NOTEBOOKS = sorted((ROOT / "notebooks").glob("*.py"))
 OFFLINE = {**os.environ, "SUSTENAUT_DATA": "offline"}
 
 
-def test_there_are_notebooks():
+@then("there are notebooks")
+def there_are_notebooks():
     assert NOTEBOOKS
 
 
-def test_marimo_check_passes():
+@then("marimo check passes")
+def marimo_check_passes():
     done = subprocess.run(
         [sys.executable, "-m", "marimo", "check", "--strict", *map(str, NOTEBOOKS)],
         capture_output=True,
@@ -27,13 +32,21 @@ def test_marimo_check_passes():
     assert done.returncode == 0, done.stdout + done.stderr
 
 
-@pytest.mark.parametrize("notebook", NOTEBOOKS, ids=lambda p: p.stem)
-def test_each_notebook_runs_headless_offline(notebook):
+@then("each notebook runs headless offline")
+def each_notebook_runs_headless_offline():
+    """Every case of the parametrized test this was, in turn."""
+    for notebook in NOTEBOOKS:
+        notebook = notebook.values[0] if type(notebook).__name__ == "ParameterSet" else notebook
+        _case_each_notebook_runs_headless_offline(notebook=notebook)
+
+
+def _case_each_notebook_runs_headless_offline(notebook):
     done = subprocess.run([sys.executable, str(notebook)], capture_output=True, text=True, cwd=ROOT, env=OFFLINE)
     assert done.returncode == 0, done.stdout + done.stderr
 
 
-def test_site_costs_shows_every_section_offline(monkeypatch):
+@then("site costs shows every section offline")
+def site_costs_shows_every_section_offline(monkeypatch):
     monkeypatch.setenv("SUSTENAUT_DATA", "offline")
     spec = importlib.util.spec_from_file_location("site_costs", ROOT / "notebooks" / "site_costs.py")
     module = importlib.util.module_from_spec(spec)

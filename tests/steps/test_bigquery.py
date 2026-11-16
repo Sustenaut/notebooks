@@ -14,6 +14,9 @@ from notebooks_lib.bigquery import (
     parameter_names,
     query_parameters,
 )
+from pytest_bdd import scenarios, then
+
+scenarios("bigquery.feature")
 
 
 class FakeClient:
@@ -43,12 +46,14 @@ def queries(tmp_path):
     return tmp_path
 
 
-def test_parameter_names_skip_comments_strings_and_system_variables():
+@then("parameter names skip comments strings and system variables")
+def parameter_names_skip_comments_strings_and_system_variables():
     sql = "SELECT \"@a\", `@b`, @@x /* @c */ # @d\nFROM t WHERE x = @e AND y IN UNNEST(@f_2)"
     assert parameter_names(sql) == {"e", "f_2"}
 
 
-def test_values_become_typed_query_parameters():
+@then("values become typed query parameters")
+def values_become_typed_query_parameters():
     when = datetime.datetime(2026, 3, 1, 12, tzinfo=datetime.UTC)
     params = {p.name: p for p in query_parameters({
         "flag": True,
@@ -79,13 +84,21 @@ def test_values_become_typed_query_parameters():
     assert (params["sites"].array_type, params["sites"].values) == ("STRING", ["tartu", "parnu"])
 
 
-@pytest.mark.parametrize("value", [None, [], [1, "a"], object()])
-def test_values_without_a_bigquery_type_are_refused(value):
+@then("values without a bigquery type are refused")
+def values_without_a_bigquery_type_are_refused():
+    """Every case of the parametrized test this was, in turn."""
+    for value in [None, [], [1, "a"], object()]:
+        value = value.values[0] if type(value).__name__ == "ParameterSet" else value
+        _case_values_without_a_bigquery_type_are_refused(value=value)
+
+
+def _case_values_without_a_bigquery_type_are_refused(value):
     with pytest.raises(QueryError):
         query_parameters({"v": value})
 
 
-def test_values_go_as_query_parameters_never_into_the_sql(queries):
+@then("values go as query parameters never into the sql")
+def values_go_as_query_parameters_never_into_the_sql(queries):
     client = FakeClient()
     sneaky = "x' OR '1'='1"
     result = Runner(client, queries=queries, offline=False).run(
@@ -102,7 +115,8 @@ def test_values_go_as_query_parameters_never_into_the_sql(queries):
     assert list(result.frame["n"]) == [1]
 
 
-def test_a_dry_run_comes_first_and_the_byte_cap_is_set(queries):
+@then("a dry run comes first and the byte cap is set")
+def a_dry_run_comes_first_and_the_byte_cap_is_set(queries):
     client = FakeClient()
     Runner(client, queries=queries, offline=False, max_bytes_billed=5000).run(
         "costs", site="a", start=datetime.date(2026, 1, 1), end=datetime.date(2026, 1, 2)
@@ -112,13 +126,15 @@ def test_a_dry_run_comes_first_and_the_byte_cap_is_set(queries):
     assert real.dry_run is not True and real.maximum_bytes_billed == 5000
 
 
-def test_the_cap_defaults_to_a_gibibyte(queries):
+@then("the cap defaults to a gibibyte")
+def the_cap_defaults_to_a_gibibyte(queries):
     client = FakeClient()
     Runner(client, queries=queries, offline=False).run("costs", site="a", start="x", end="y")
     assert client.jobs[-1][1].maximum_bytes_billed == DEFAULT_MAX_BYTES == 1024**3
 
 
-def test_a_query_over_the_cap_never_runs(queries):
+@then("a query over the cap never runs")
+def a_query_over_the_cap_never_runs(queries):
     client = FakeClient(scanned=10_000)
     runner = Runner(client, queries=queries, offline=False, max_bytes_billed=9_999)
     with pytest.raises(BytesCapExceeded) as raised:
@@ -127,25 +143,31 @@ def test_a_query_over_the_cap_never_runs(queries):
     assert [config.dry_run for _, config in client.jobs] == [True]
 
 
-def test_dry_run_reports_bytes(queries):
+@then("dry run reports bytes")
+def dry_run_reports_bytes(queries):
     assert Runner(FakeClient(scanned=42), queries=queries, offline=False).dry_run("costs", site="a", start="x", end="y") == 42
 
 
-@pytest.mark.parametrize(
-    ("values", "message"),
-    [
+@then("parameters must match the sql")
+def parameters_must_match_the_sql(queries):
+    """Every case of the parametrized test this was, in turn."""
+    for case0 in [
         ({"site": "a", "start": "x"}, "no value for end"),
         ({"site": "a", "start": "x", "end": "y", "limit": 3}, "no @parameter for limit"),
-    ],
-)
-def test_parameters_must_match_the_sql(queries, values, message):
+    ]:
+        case0 = case0.values if type(case0).__name__ == "ParameterSet" else case0
+        _case_parameters_must_match_the_sql(values=case0[0], message=case0[1], queries=queries)
+
+
+def _case_parameters_must_match_the_sql(queries, values, message):
     client = FakeClient()
     with pytest.raises(QueryError, match=message):
         Runner(client, queries=queries, offline=False).run("costs", **values)
     assert client.jobs == []
 
 
-def test_offline_reads_the_sample_and_never_makes_a_client(queries, tmp_path, monkeypatch):
+@then("offline reads the sample and never makes a client")
+def offline_reads_the_sample_and_never_makes_a_client(queries, tmp_path, monkeypatch):
     samples = tmp_path / "samples"
     samples.mkdir()
     (samples / "costs.csv").write_text("day,amount\n2026-03-01,4.5\n")
@@ -161,8 +183,17 @@ def test_offline_reads_the_sample_and_never_makes_a_client(queries, tmp_path, mo
         runner.run("costs", site="a")
 
 
-@pytest.mark.parametrize("suffix", [".json", ".parquet"])
-def test_offline_reads_json_and_parquet_samples(queries, tmp_path, suffix):
+@then("offline reads json and parquet samples")
+def offline_reads_json_and_parquet_samples(queries, tmp_path):
+    """Every case of the parametrized test this was, in turn."""
+    for suffix in [".json", ".parquet"]:
+        suffix = suffix.values[0] if type(suffix).__name__ == "ParameterSet" else suffix
+        case_dir = tmp_path / f"case-{len(list(tmp_path.iterdir()))}"
+        case_dir.mkdir()
+        _case_offline_reads_json_and_parquet_samples(suffix=suffix, queries=queries, tmp_path=case_dir)
+
+
+def _case_offline_reads_json_and_parquet_samples(queries, tmp_path, suffix):
     samples = tmp_path / "samples"
     samples.mkdir()
     frame = pd.DataFrame({"n": [1, 2]})
@@ -171,12 +202,14 @@ def test_offline_reads_json_and_parquet_samples(queries, tmp_path, suffix):
     assert list(result.frame["n"]) == [1, 2]
 
 
-def test_offline_without_a_sample_says_so(queries, tmp_path):
+@then("offline without a sample says so")
+def offline_without_a_sample_says_so(queries, tmp_path):
     with pytest.raises(FileNotFoundError, match="no sample for costs"):
         Runner(queries=queries, samples=tmp_path, offline=True).run("costs", site="a", start="x", end="y")
 
 
-def test_online_is_the_default_and_makes_its_client_on_first_use(monkeypatch):
+@then("online is the default and makes its client on first use")
+def online_is_the_default_and_makes_its_client_on_first_use(monkeypatch):
     monkeypatch.delenv("SUSTENAUT_DATA", raising=False)
     made = []
     monkeypatch.setattr(bigquery, "Client", lambda: made.append(1) or "client")
@@ -185,21 +218,26 @@ def test_online_is_the_default_and_makes_its_client_on_first_use(monkeypatch):
     assert runner.client == "client" and runner.client == "client" and made == [1]
 
 
-@pytest.mark.parametrize(
-    ("name", "values", "wanted"),
-    [
+@then("the repository queries have samples")
+def the_repository_queries_have_samples():
+    """Every case of the parametrized test this was, in turn."""
+    for case0 in [
         ("calls_per_day", {"start": "2026-10-04", "end": "2026-11-02", "projects": ["visit_ee"]}, {"start", "end", "projects"}),
         ("status_per_day", {"start": "2026-10-04", "end": "2026-11-02", "projects": ["visit_ee"]}, {"start", "end", "projects"}),
         ("table_storage", {"tables": ["calls"]}, {"tables"}),
-    ],
-)
-def test_the_repository_queries_have_samples(name, values, wanted):
+    ]:
+        case0 = case0.values if type(case0).__name__ == "ParameterSet" else case0
+        _case_the_repository_queries_have_samples(name=case0[0], values=case0[1], wanted=case0[2])
+
+
+def _case_the_repository_queries_have_samples(name, values, wanted):
     runner = Runner(offline=True)
     assert parameter_names(runner.sql(name)) == wanted
     assert not runner.run(name, **values).frame.empty
 
 
-def test_the_billing_query_has_no_sample_until_the_export_exists():
+@then("the billing query has no sample until the export exists")
+def the_billing_query_has_no_sample_until_the_export_exists():
     runner = Runner(offline=True)
     assert parameter_names(runner.sql("billing")) == {"month"}
     with pytest.raises(FileNotFoundError):

@@ -5,6 +5,9 @@ from jsonschema.exceptions import SchemaError
 
 from notebooks_lib.forms import FORMS, Form, FormError, load_form
 from notebooks_lib.widget import BUNDLE, SchemaFormWidget
+from pytest_bdd import scenarios, then
+
+scenarios("forms.feature")
 
 
 @pytest.fixture
@@ -12,19 +15,22 @@ def form():
     return load_form("site_costs")
 
 
-def test_a_form_loads_its_schema_and_ui_schema(form):
+@then("a form loads its schema and ui schema")
+def a_form_loads_its_schema_and_ui_schema(form):
     assert form.name == "site_costs"
     assert form.schema["required"] == ["period", "projects"]
     assert form.uischema["type"] == "Group"
 
 
-def test_valid_values_pass(form):
+@then("valid values pass")
+def valid_values_pass(form):
     values = {"period": {"start": "2026-03-01", "end": "2026-03-31"}, "projects": ["visit_ee"]}
     assert form.errors(values) == []
     assert form.is_valid(values)
 
 
-def test_errors_name_the_value_by_its_path(form):
+@then("errors name the value by its path")
+def errors_name_the_value_by_its_path(form):
     errors = form.errors({"projects": ["riga"], "period": {"start": "not a date"}})
     assert [e.path for e in errors] == ["/period", "/period/start", "/projects/0"]
     assert all(isinstance(e, FormError) and e.message for e in errors)
@@ -33,7 +39,8 @@ def test_errors_name_the_value_by_its_path(form):
     assert [e.path for e in form.errors({})] == ["", ""]
 
 
-def test_the_model_form_accepts_the_data_files():
+@then("the model form accepts the data files")
+def the_model_form_accepts_the_data_files():
     from notebooks_lib.costs import model_defaults
 
     model = load_form("site_costs.model")
@@ -43,18 +50,21 @@ def test_the_model_form_accepts_the_data_files():
     assert {e.path for e in model.errors(bad)} == {"/load_now", "/multipliers/pub"}
 
 
-def test_a_schema_that_is_not_json_schema_is_refused(tmp_path):
+@then("a schema that is not json schema is refused")
+def a_schema_that_is_not_json_schema_is_refused(tmp_path):
     (tmp_path / "bad.form.json").write_text(json.dumps({"schema": {"type": 5}, "uischema": {}}))
     with pytest.raises(SchemaError):
         load_form("bad", tmp_path)
 
 
-def test_a_missing_form_is_an_error(tmp_path):
+@then("a missing form is an error")
+def a_missing_form_is_an_error(tmp_path):
     with pytest.raises(FileNotFoundError):
         load_form("nothing", tmp_path)
 
 
-def test_a_form_becomes_a_widget_whose_value_is_its_data(form):
+@then("a form becomes a widget whose value is its data")
+def a_form_becomes_a_widget_whose_value_is_its_data(form):
     widget = form.widget({"projects": ["visit_ee"]})
     assert isinstance(widget, SchemaFormWidget)
     assert (widget.schema, widget.uischema, widget.value, widget.errors) == (
@@ -66,14 +76,22 @@ def test_a_form_becomes_a_widget_whose_value_is_its_data(form):
     assert Form("x", {}, {}).widget().value == {}
 
 
-def test_the_widget_needs_its_built_bundle(monkeypatch, tmp_path):
+@then("the widget needs its built bundle")
+def the_widget_needs_its_built_bundle(monkeypatch, tmp_path):
     assert BUNDLE.exists(), "run `make widget` first"
     monkeypatch.setattr("notebooks_lib.widget.BUNDLE", tmp_path / "missing.js")
     with pytest.raises(FileNotFoundError, match="make widget"):
         SchemaFormWidget()
 
 
-@pytest.mark.parametrize("path", sorted(FORMS.glob("*.form.json")), ids=lambda p: p.name)
-def test_every_form_is_valid_json_schema_with_a_ui_schema(path):
+@then("every form is valid json schema with a ui schema")
+def every_form_is_valid_json_schema_with_a_ui_schema():
+    """Every case of the parametrized test this was, in turn."""
+    for path in sorted(FORMS.glob("*.form.json")):
+        path = path.values[0] if type(path).__name__ == "ParameterSet" else path
+        _case_every_form_is_valid_json_schema_with_a_ui_schema(path=path)
+
+
+def _case_every_form_is_valid_json_schema_with_a_ui_schema(path):
     form = load_form(path.name.removesuffix(".form.json"))
     assert form.uischema["type"] in {"VerticalLayout", "HorizontalLayout", "Group", "Categorization"}

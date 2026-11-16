@@ -4,6 +4,9 @@ import pandas as pd
 import pytest
 
 from notebooks_lib import costs as C
+from pytest_bdd import scenarios, then
+
+scenarios("costs.feature")
 
 SITES = ("a", "b")
 
@@ -25,13 +28,15 @@ def model(prices, shares=(), use=None, load_now=0.0, headroom=0.8):
     return C.Model(prices, list(shares), use if use is not None else usage(), load_now=load_now, headroom=headroom, sites=SITES)
 
 
-def test_a_fixed_price_is_quantity_times_price_and_a_yearly_one_a_twelfth():
+@then("a fixed price is quantity times price and a yearly one a twelfth")
+def a_fixed_price_is_quantity_times_price_and_a_yearly_one_a_twelfth():
     assert price(quantity=20, price_eur=0.5).monthly() == 10
     assert price(per="year", price_eur=12).monthly() == 1
     assert price(price_eur=None).monthly() is None
 
 
-def test_a_usage_price_charges_beyond_the_allowance_with_its_plan_fee_once():
+@then("a usage price charges beyond the allowance with its plan fee once")
+def a_usage_price_charges_beyond_the_allowance_with_its_plan_fee_once():
     p = price(kind="usage", free=3, price_eur=2, step_fee_eur=5)
     assert p.usage_cost(3) == 0
     assert p.usage_cost(4) == 5 + 2
@@ -39,12 +44,14 @@ def test_a_usage_price_charges_beyond_the_allowance_with_its_plan_fee_once():
     assert price(kind="usage", free=3, price_eur=None).usage_cost(4) is None
 
 
-def test_empty_values_read_as_none_or_zero():
+@then("empty values read as none or zero")
+def empty_values_read_as_none_or_zero():
     p = C.Price.from_row({"id": "y", "price_eur": float("nan"), "quantity": None})
     assert (p.item, p.kind, p.price_eur, p.quantity, p.metric) == ("y", "fixed", None, 0.0, "")
 
 
-def test_weights_split_by_the_share_table_and_evenly_without_one():
+@then("weights split by the share table and evenly without one")
+def weights_split_by_the_share_table_and_evenly_without_one():
     assert C.weights([{"site": "a", "x": 3}, {"site": "b", "x": 1}], "x", SITES) == {"a": 0.75, "b": 0.25}
     assert C.weights([], "x", SITES) == {"a": 0.5, "b": 0.5}
     assert C.weights([{"site": "a", "x": 2}], "x", SITES) == {"a": 1.0, "b": 0.0}
@@ -52,7 +59,8 @@ def test_weights_split_by_the_share_table_and_evenly_without_one():
     assert C.weights([{"site": "zz", "x": 9}], "x", SITES) == {"a": 0.5, "b": 0.5}
 
 
-def test_fixed_costs_follow_the_shares_and_unknown_prices_are_listed_not_counted():
+@then("fixed costs follow the shares and unknown prices are listed not counted")
+def fixed_costs_follow_the_shares_and_unknown_prices_are_listed_not_counted():
     prices = [price(id="srv", price_eur=9), price(id="vol", item="Volume", price_eur=None)]
     c = model(prices, [{"site": "a", "srv": 2}, {"site": "b", "srv": 1}]).costs({})
     assert c.per_site.loc["a", "fixed"] == pytest.approx(6)
@@ -61,7 +69,8 @@ def test_fixed_costs_follow_the_shares_and_unknown_prices_are_listed_not_counted
     assert pd.isna(c.items.set_index("id").loc["vol", "cost"])
 
 
-def test_usage_costs_use_the_account_wide_allowance_and_follow_each_site_s_usage():
+@then("usage costs use the account wide allowance and follow each site s usage")
+def usage_costs_use_the_account_wide_allowance_and_follow_each_site_s_usage():
     prices = [price(id="st", kind="usage", metric="bq_storage_gib", free=10, price_eur=1)]
     c = model(prices, use=usage(bq_storage_gib=(9, 3))).costs({})
     assert c.per_site["usage"].tolist() == pytest.approx([1.5, 0.5])
@@ -70,7 +79,8 @@ def test_usage_costs_use_the_account_wide_allowance_and_follow_each_site_s_usage
     assert model(unknown, use=usage(bq_storage_gib=(4, 3))).costs({}).unpriced == ["Storage"]
 
 
-def test_a_per_table_metric_is_checked_per_site_and_load_jobs_never_pass_one_per_cycle():
+@then("a per table metric is checked per site and load jobs never pass one per cycle")
+def a_per_table_metric_is_checked_per_site_and_load_jobs_never_pass_one_per_cycle():
     jobs = [price(id="j", item="Jobs", kind="usage", metric="bq_load_jobs_day", free=1500, price_eur=0)]
     m = model(jobs, use=usage(bq_load_jobs_day=(100, 0)))
     assert m.costs({"a": 1000}).per_site["usage"].sum() == 0
@@ -91,7 +101,8 @@ def servers(next_price=20.0):
     ]
 
 
-def test_the_server_moves_to_the_next_type_past_the_headroom():
+@then("the server moves to the next type past the headroom")
+def the_server_moves_to_the_next_type_past_the_headroom():
     m = model(servers(), load_now=0.5, headroom=0.8)
     assert (m.costs({}).server, m.costs({}).server_load) == ("small", 0.5)
     grown = m.costs({"a": 3, "b": 3})
@@ -102,13 +113,15 @@ def test_the_server_moves_to_the_next_type_past_the_headroom():
     assert model(servers(next_price=None), load_now=0.5).costs({"a": 3, "b": 3}).unpriced == ["medium"]
 
 
-def test_without_a_server_row_there_is_no_server_cost():
+@then("without a server row there is no server cost")
+def without_a_server_row_there_is_no_server_cost():
     c = model([price(id="gh", price_eur=4)]).costs({})
     assert (c.server, c.server_load, c.per_site["total"].sum()) == ("", 0.0, 4)
     assert model([price(id="gh")]).state({}, "a") == set()
 
 
-def test_growth_marks_each_step_where_it_happens():
+@then("growth marks each step where it happens")
+def growth_marks_each_step_where_it_happens():
     prices = servers() + [
         price(id="st", item="Storage", kind="usage", metric="bq_storage_gib", free=10, price_eur=None),
         price(id="j", item="Jobs", kind="usage", metric="bq_load_jobs_day", free=1500, price_eur=0),
@@ -124,7 +137,8 @@ def test_growth_marks_each_step_where_it_happens():
     assert curve.query("site == 'a' and multiplier == 3")["cost"].item() == pytest.approx(5)
 
 
-def test_usage_now_turns_the_query_results_into_monthly_usage_per_site():
+@then("usage now turns the query results into monthly usage per site")
+def usage_now_turns_the_query_results_into_monthly_usage_per_site():
     calls = pd.DataFrame({"project": ["visit_ee", "visit_ee"], "calls": [100, 200]})
     status = pd.DataFrame(
         {
@@ -151,14 +165,16 @@ def test_usage_now_turns_the_query_results_into_monthly_usage_per_site():
     assert u.loc["integrations"].sum() == 0
 
 
-def test_usage_now_with_nothing_read_is_zero_and_skips_sites_it_does_not_cost():
+@then("usage now with nothing read is zero and skips sites it does not cost")
+def usage_now_with_nothing_read_is_zero_and_skips_sites_it_does_not_cost():
     empty = pd.DataFrame()
     u = C.usage_now(empty, empty, empty, days=0, sites=("visit_ee",))
     assert u.loc["visit_ee"].sum() == 0
     assert list(u.index) == ["visit_ee"]
 
 
-def test_the_defaults_come_from_the_data_files(tmp_path):
+@then("the defaults come from the data files")
+def the_defaults_come_from_the_data_files(tmp_path):
     for name, body in {
         "prices": {"rows": [{"id": "p"}]},
         "shares": {"rows": [{"site": "a"}]},
@@ -170,7 +186,8 @@ def test_the_defaults_come_from_the_data_files(tmp_path):
     assert d["multipliers"] == dict.fromkeys(C.SITES, 1) and (d["load_now"], d["headroom"]) == (30, 80)
 
 
-def test_every_price_row_has_a_source_date_and_a_reason_when_unpriced():
+@then("every price row has a source date and a reason when unpriced")
+def every_price_row_has_a_source_date_and_a_reason_when_unpriced():
     rows = C.model_defaults()["prices"]
     assert len({r["id"] for r in rows}) == len(rows)
     for r in rows:
@@ -182,7 +199,8 @@ def test_every_price_row_has_a_source_date_and_a_reason_when_unpriced():
             assert "not priced" in r["note"].lower()
 
 
-def test_the_billing_summary_nets_credits_per_service():
+@then("the billing summary nets credits per service")
+def the_billing_summary_nets_credits_per_service():
     frame = pd.DataFrame(
         {
             "service": ["BigQuery", "BigQuery", "Cloud Storage"],
