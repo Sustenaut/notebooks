@@ -39,7 +39,7 @@ jobs:
     needs: [tested, tests]
     if: ${{ github.event_name != 'merge_group' && needs.tested.outputs.tested != 'true' }}
     uses: Sustenaut/pubkit/.github/workflows/job-sonar.yml@c502c3d3969ac75ec9a411c284e49f01c5a93558 # v0.37.0
-    with: {"sonar-args": "-Dsonar.tests=tests,widget -Dsonar.test.inclusions=tests/**,widget/**/*.steps.tsx -Dsonar.exclusions=tests/**,widget/**/*.steps.tsx -Dsonar.coverage.exclusions=vite.config.ts,widget/**/*.steps.tsx", "reports": "sonar.python.coverage.reportPaths=*.xml sonar.javascript.lcov.reportPaths=lcov.info"}
+    with: {"reports": "sonar.python.coverage.reportPaths=*.xml sonar.javascript.lcov.reportPaths=lcov.info"}
     secrets: { SONAR_TOKEN: '${{ secrets.SONAR_TOKEN }}' }
 
   # The one check a ruleset requires: it passes only when every job
