@@ -6,6 +6,9 @@ import pytest
 
 from notebooks_lib import serve
 from notebooks_lib.access_check import DEGRADED, NO_ROLE, OK, SIGN_IN, UNAVAILABLE, Decision
+from pytest_bdd import scenarios, then
+
+scenarios("serve.feature")
 
 
 class Check:
@@ -55,7 +58,8 @@ GATE_ANSWERS = {
 }
 
 
-def test_someone_with_the_role_gets_through_and_every_request_is_a_read():
+@then("someone with the role gets through and every request is a read")
+def someone_with_the_role_gets_through_and_every_request_is_a_read():
     check = Check(GATE_ANSWERS)
     gate = serve.AccessGate(downstream, check)
     assert call(gate, path="/site_costs", headers=who("member@sustenaut.eu", "tok"))[1]["body"] == b"notebook"
@@ -65,14 +69,16 @@ def test_someone_with_the_role_gets_through_and_every_request_is_a_read():
     assert all(write is False for _, _, write in check.asked)
 
 
-def test_without_the_role_the_site_refuses():
+@then("without the role the site refuses")
+def without_the_role_the_site_refuses():
     gate = serve.AccessGate(downstream, Check(GATE_ANSWERS))
     start, body = call(gate, path="/site_costs", headers=who("stranger@sustenaut.eu"))
     assert start["status"] == 403 and b"team access page" in body["body"]
     assert call(gate, "websocket", "/ws", who("stranger@sustenaut.eu")) == [{"type": "websocket.close", "code": 4403}]
 
 
-def test_an_ended_session_or_no_email_is_sent_to_sign_in_keeping_where_it_was():
+@then("an ended session or no email is sent to sign in keeping where it was")
+def an_ended_session_or_no_email_is_sent_to_sign_in_keeping_where_it_was():
     gate = serve.AccessGate(downstream, Check(GATE_ANSWERS))
     start = call(gate, path="/site_costs/", headers=who("gone@sustenaut.eu"), query=b"a=1")[0]
     assert start["status"] == 302
@@ -81,13 +87,15 @@ def test_an_ended_session_or_no_email_is_sent_to_sign_in_keeping_where_it_was():
     assert call(gate, "websocket", "/ws") == [{"type": "websocket.close", "code": 4401}]
 
 
-def test_when_auth_cannot_vouch_the_site_says_try_later():
+@then("when auth cannot vouch the site says try later")
+def when_auth_cannot_vouch_the_site_says_try_later():
     gate = serve.AccessGate(downstream, Check(GATE_ANSWERS))
     assert call(gate, path="/x", headers=who("later@sustenaut.eu"))[0]["status"] == 503
     assert call(gate, "websocket", "/ws", who("later@sustenaut.eu")) == [{"type": "websocket.close", "code": 4503}]
 
 
-def test_health_is_open_and_lifespan_passes_through():
+@then("health is open and lifespan passes through")
+def health_is_open_and_lifespan_passes_through():
     check = Check({})
     gate = serve.AccessGate(downstream, check)
     start, body = call(gate, path="/healthz")
@@ -101,7 +109,8 @@ def test_health_is_open_and_lifespan_passes_through():
     assert seen == ["lifespan"]
 
 
-def test_each_notebook_has_its_address_and_the_front_page_links_them(tmp_path):
+@then("each notebook has its address and the front page links them")
+def each_notebook_has_its_address_and_the_front_page_links_them(tmp_path):
     (tmp_path / "site_costs.py").write_text("")
     (tmp_path / "b.py").write_text("")
     (tmp_path / "data.json").write_text("{}")
@@ -112,14 +121,16 @@ def test_each_notebook_has_its_address_and_the_front_page_links_them(tmp_path):
     assert b'<a href="/site_costs">Site costs</a>' in body["body"]
 
 
-def test_the_built_site_serves_the_front_page_and_the_notebooks_behind_the_gate():
+@then("the built site serves the front page and the notebooks behind the gate")
+def the_built_site_serves_the_front_page_and_the_notebooks_behind_the_gate():
     site = serve.build(Check({"member@sustenaut.eu": Decision(True, OK, frozenset({"notebooks"}))}))
     assert b"/site_costs" in call(site, path="/", headers=who("member@sustenaut.eu"))[1]["body"]
     assert call(site, path="/", headers=who("stranger@sustenaut.eu"))[0]["status"] == 403
     assert call(site, path="/site_costs", headers=who("stranger@sustenaut.eu"))[0]["status"] == 403
 
 
-def test_the_site_needs_its_sign_in_client(monkeypatch):
+@then("the site needs its sign in client")
+def the_site_needs_its_sign_in_client(monkeypatch):
     monkeypatch.delenv("NOTEBOOKS_CLIENT_ID", raising=False)
     monkeypatch.delenv("NOTEBOOKS_CLIENT_SECRET", raising=False)
     with pytest.raises(RuntimeError, match="make apps"):

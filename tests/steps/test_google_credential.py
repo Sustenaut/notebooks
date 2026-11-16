@@ -9,13 +9,17 @@ import json
 from pathlib import Path
 
 import yaml
+from pytest_bdd import scenarios, then
 
-ROOT = Path(__file__).resolve().parents[1]
+scenarios("google-credential.feature")
+
+ROOT = Path(__file__).resolve().parents[2]
 PROVIDER = ("//iam.googleapis.com/projects/948171295184/locations/global/workloadIdentityPools/services/"
             "providers/sustenaut-k3s")
 
 
-def test_the_token_the_credential_and_the_provider_name_one_audience():
+@then("the token the credential and the provider name one audience")
+def the_token_the_credential_and_the_provider_name_one_audience():
     configmap = yaml.safe_load((ROOT / "k8s" / "google-credential.yaml").read_text(encoding="utf-8"))
     credential = json.loads(configmap["data"]["credential.json"])
     assert credential["type"] == "external_account" and credential["audience"] == PROVIDER
@@ -35,7 +39,8 @@ def test_the_token_the_credential_and_the_provider_name_one_audience():
     assert env["GOOGLE_APPLICATION_CREDENTIALS"] == f"{mounts['google-credential']}/credential.json"
 
 
-def test_google_auth_takes_the_credential_without_a_key(tmp_path):
+@then("google auth takes the credential without a key")
+def google_auth_takes_the_credential_without_a_key(tmp_path):
     import google.auth
 
     configmap = yaml.safe_load((ROOT / "k8s" / "google-credential.yaml").read_text(encoding="utf-8"))
