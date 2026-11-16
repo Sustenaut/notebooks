@@ -3,8 +3,8 @@
 # X-Forwarded-Access-Token, so nothing but the proxy may reach it: no ingress points here,
 # and admin/network-policy.yaml lets in only the proxy's pods. On each request it asks
 # whether the person still has the role notebooks (notebooks_lib/access_check.py).
-# BigQuery is read as notebooks-reader (shared-infra's infra/notebooks.tf), with the key
-# the deploy walk puts in the Secret notebooks-secrets, mounted as a file.
+# BigQuery is read as notebooks-reader (shared-infra's infra/notebooks.tf) with no key:
+# the pod's projected token through Workload Identity (google-credential.yaml).
 apiVersion: v1
 kind: Service
 metadata:
@@ -55,7 +55,7 @@ spec:
                   name: notebooks-oidc
                   key: client-secret
             - name: GOOGLE_APPLICATION_CREDENTIALS
-              value: /var/run/secrets/google/notebooks-reader.json
+              value: /etc/google/credential.json
             - name: GOOGLE_CLOUD_PROJECT
               value: sustenaut
           securityContext:
@@ -74,19 +74,25 @@ spec:
             limits:
               memory: 1Gi
           volumeMounts:
-            - name: google-key
+            - name: google-token
               mountPath: /var/run/secrets/google
+              readOnly: true
+            - name: google-credential
+              mountPath: /etc/google
               readOnly: true
             # marimo writes its session caches under the home directory.
             - name: home
               mountPath: /home/app
       volumes:
-        - name: google-key
-          secret:
-            secretName: notebooks-secrets
-            items:
-              - key: notebooks-reader-key
-                path: notebooks-reader.json
-            defaultMode: 0400
+        - name: google-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: "//iam.googleapis.com/projects/948171295184/locations/global/workloadIdentityPools/services/providers/sustenaut-k3s"
+                  path: token
+                  expirationSeconds: 3600
+        - name: google-credential
+          configMap:
+            name: google-credential
         - name: home
           emptyDir: {}

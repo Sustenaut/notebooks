@@ -113,8 +113,8 @@ Every run can run again: what is ready is left alone. In order:
 |---|---|
 | the namespace `notebooks` | the server's `sustenaut-app`, which makes it and its deploy identity |
 | `bitwarden.generated` `notebooks-cookie-secret` | oauth2-proxy's cookie secret: a new one of its shape, written to Bitwarden, when it is missing or misshapen |
-| `gcp.service-account-key` `notebooks-reader-key` | the BigQuery key for `notebooks-reader` (shared-infra's `infra/notebooks.tf`): made and written to Bitwarden when it is missing or not one of the account's live keys |
-| the Secret `notebooks-secrets` | made from the cookie secret and the reader key; the app and oauth2-proxy restarted |
+| `gcp.workload-identity` `app` | that the app's ServiceAccount may act as `notebooks-reader` (shared-infra's `infra/notebooks.tf`) through the `services` Workload Identity pool, so BigQuery is read with no key (`k8s/google-credential.yaml`); the grant is Terraform's (`infra/services-identity.tf`) and only proposed |
+| the Secret `notebooks-secrets` | made from the cookie secret; the app and oauth2-proxy restarted |
 | `auth.sign-in-client` | sustenaut.eu's team-site client in the team realm, role `notebooks`: the approval record written into shared-infra's `infra/auth-approvals.json` when auth.sustenaut.eu wants one, and once the client is issued, the Secret `notebooks-oidc` made from it on the server |
 | `k8s.manifests` | `k8s/admin/network-policy.yaml` applied: only oauth2-proxy's pods may reach the app |
 | the deploy settings | the server's variables and secrets in pubkit.json's `"secrets"` on this repository, checked |

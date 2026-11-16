@@ -11,6 +11,7 @@ kind: Kustomization
 namespace: notebooks
 resources:
   - service-accounts.yaml
+  - google-credential.yaml
   - app.yaml
   - oauth2-proxy.yaml
   - ingress.yaml
