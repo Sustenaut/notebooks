@@ -92,17 +92,17 @@ Who may use the site is the team access page (auth.sustenaut.eu/realms/team/acce
 ## Deploying
 
 `.github/workflows/deploy.yml` builds the image on each merge to main, once CI has
-passed, and applies `k8s/` to namespace `notebooks` with pubkit's `k8s-deploy.yml`,
+passed, and applies `k8s/` to namespace `notebooks` with pubrules's `k8s-deploy.yml`,
 once `DEPLOY_NOTEBOOKS` is `on`.
 
-pubkit.json's `deploy` block lists everything else the deployment needs, and pubkit's
+pubrules.json's `deploy` block lists everything else the deployment needs, and pubrules's
 deploy walk checks each need and makes what it can. To take the site live, or bring it
 back in step, from a checkout of this repository with Sustenaut/shared-infra and
 Sustenaut/auth checked out beside it, on a machine on the admin tailnet, signed in to
 `gh` and `gcloud`:
 
 ```sh
-./with-secrets ./pubdeploy walk --fulfil --server sustenaut --zones ../shared-infra/pubkit.json
+./with-secrets ./pubdeploy walk --fulfil --server sustenaut --zones ../shared-infra/pubrules.json
 ```
 
 It checks every need, prints the plan, and waits for a typed `yes`; then it makes each
@@ -117,7 +117,7 @@ Every run can run again: what is ready is left alone. In order:
 | the Secret `notebooks-secrets` | made from the cookie secret; the app and oauth2-proxy restarted |
 | `auth.sign-in-client` | sustenaut.eu's team-site client in the team realm, role `notebooks`: the approval record written into shared-infra's `infra/auth-approvals.json` when auth.sustenaut.eu wants one, and once the client is issued, the Secret `notebooks-oidc` made from it on the server |
 | `k8s.manifests` | `k8s/admin/network-policy.yaml` applied: only oauth2-proxy's pods may reach the app |
-| the deploy settings | the server's variables and secrets in pubkit.json's `"secrets"` on this repository, checked |
+| the deploy settings | the server's variables and secrets in pubrules.json's `"secrets"` on this repository, checked |
 | `DEPLOY_NOTEBOOKS` and the rollout | the gate on, once everything before it is ready, and `deploy.yml` run and waited for |
 | `service.health` | `https://notebooks.sustenaut.eu/healthz` answers |
 
@@ -143,12 +143,12 @@ shared-infra (the reader account, the DNS record and the `auth_team` output); an
 team realm, with everyone who may use the site holding the role `notebooks`. The ghcr
 package `ghcr.io/sustenaut/notebooks` is **public** and holds no private code, so the
 cluster pulls it without a secret; give this repository write access under *Manage
-Actions access*. Branch protection is `./pubkit protect Sustenaut/notebooks`.
+Actions access*. Branch protection is `./pubrules protect Sustenaut/notebooks`.
 
 ## Tests
 
 `make test` runs the widget's typecheck and Vitest tests (`widget/*.test.tsx`), then pytest: the helpers
 (`tests/test_bigquery.py`, `tests/test_forms.py`), `marimo check --strict` on every notebook, and a headless
 run of each notebook in offline mode (`tests/test_notebooks.py`). Coverage goes to `coverage/` for
-SonarQube Cloud. The repository's setup comes from pubkit (`pubkit.json`, `./pubkit sync --check`); see
+SonarQube Cloud. The repository's setup comes from pubrules (`pubrules.json`, `./pubrules sync --check`); see
 `AGENTS.md`.

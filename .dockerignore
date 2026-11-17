@@ -1,6 +1,6 @@
 .git/
 .venv/
-.pubkit/
+.pubrules/
 node_modules/
 coverage/
 .pytest_cache/

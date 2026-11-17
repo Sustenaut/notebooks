@@ -1,5 +1,5 @@
 # Build and deploy the notebooks site (notebooks.sustenaut.eu) once CI passes on a merge
-# to main, or by hand, with pubkit's k8s-deploy.yml (pubkit's README, "Deploying a
+# to main, or by hand, with pubrules's k8s-deploy.yml (pubrules's README, "Deploying a
 # service to k3s"). The image goes to GitHub's container registry and holds the
 # notebooks, their queries and forms and the widget's bundle: no key, no token and no
 # data (the BigQuery key is mounted on the server, k8s/app.yaml). Then the manifests in
@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   deploy:
-    uses: Sustenaut/pubdeploy/.github/workflows/k8s-deploy.yml@9d13c3fca915b386742565895d67d9a831492cfa # v0.4.1
+    uses: Sustenaut/pubdeploy/.github/workflows/k8s-deploy.yml@fc34f05c790732a1ea831d896e557e9f816cba50 # v0.5.0
     with:
       image: ghcr.io/sustenaut/notebooks
       deploys: |
