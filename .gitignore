@@ -1,7 +1,7 @@
 .venv/
 __pycache__/
 .pytest_cache/
-.pubkit/
+.pubrules/
 node_modules/
 coverage/
 .coverage

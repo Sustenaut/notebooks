@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-# The tests, at the versions tests/requirements-pubkit.txt pins for every pubkit repository.
+# The tests, at the versions tests/requirements-pubrules.txt pins for every pubrules repository.
 dev = [
   "hypothesis==6.170.5",
   "pytest==9.0.3",

@@ -5,7 +5,7 @@
 # (kustomize edit set image) and applied by sustenaut-deploy on the server.
 # Not here: the Secrets notebooks-secrets and notebooks-oidc (the sign-in client) and
 # the network policy in admin/ (the deploy identity may not manage those), which the
-# deploy walk puts in (pubkit.json's deploy block, README.md, "Deploying").
+# deploy walk puts in (pubrules.json's deploy block, README.md, "Deploying").
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: notebooks
