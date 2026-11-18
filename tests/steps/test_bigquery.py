@@ -1,35 +1,47 @@
 import datetime
 import decimal
+import json
 from types import SimpleNamespace
 
 import pandas as pd
 import pytest
 from google.cloud import bigquery
+from pytest_bdd import given, parsers, scenarios, then, when
 
-from notebooks_lib.bigquery import (
-    DEFAULT_MAX_BYTES,
-    BytesCapExceeded,
-    QueryError,
-    Runner,
-    parameter_names,
-    query_parameters,
-)
-from pytest_bdd import scenarios, then
+from notebooks_lib.bigquery import Runner, parameter_names, query_parameters
 
 scenarios("bigquery.feature")
+
+WHEN = datetime.datetime(2026, 3, 1, 12, tzinfo=datetime.UTC)
+VALUES = {
+    "a bool": True,
+    "an int": 3,
+    "a float": 1.5,
+    "a decimal": decimal.Decimal("2.50"),
+    "a text": "tartu",
+    "bytes": b"\x00",
+    "a zoned datetime": WHEN,
+    "a local datetime": WHEN.replace(tzinfo=None),
+    "a date": datetime.date(2026, 3, 1),
+    "a time of day": datetime.time(8),
+    "a list of texts": ["tartu", "parnu"],
+    "nothing": None,
+    "an empty list": [],
+    "a mixed list": [1, "a"],
+    "an object": object(),
+}
 
 
 class FakeClient:
     """A BigQuery client that records each job's SQL and config, and reports `scanned` bytes."""
 
-    def __init__(self, scanned=1000, rows=None):
+    def __init__(self, scanned):
         self.scanned = scanned
-        self.rows = rows if rows is not None else pd.DataFrame({"n": [1]})
         self.jobs = []
 
     def query(self, sql, job_config):
         self.jobs.append((sql, job_config))
-        frame = self.rows
+        frame = pd.DataFrame({"n": [1]})
         return SimpleNamespace(
             total_bytes_processed=self.scanned,
             total_bytes_billed=None if job_config.dry_run else self.scanned,
@@ -37,208 +49,139 @@ class FakeClient:
         )
 
 
-@pytest.fixture
-def queries(tmp_path):
-    (tmp_path / "costs.sql").write_text(
-        "-- @not_a_parameter in a comment\n"
-        "SELECT '@not_one_either', @@query_label FROM t WHERE site = @site AND day BETWEEN @start AND @end\n"
-    )
-    return tmp_path
+def parameter(p):
+    """A query parameter as JSON: its class, name, type, and an array's values."""
+    if isinstance(p, bigquery.ArrayQueryParameter):
+        return {"class": type(p).__name__, "name": p.name, "type": p.array_type, "values": p.values}
+    return {"class": type(p).__name__, "name": p.name, "type": p.type_}
 
 
-@then("parameter names skip comments strings and system variables")
-def parameter_names_skip_comments_strings_and_system_variables():
-    sql = "SELECT \"@a\", `@b`, @@x /* @c */ # @d\nFROM t WHERE x = @e AND y IN UNNEST(@f_2)"
-    assert parameter_names(sql) == {"e", "f_2"}
-
-
-@then("values become typed query parameters")
-def values_become_typed_query_parameters():
-    when = datetime.datetime(2026, 3, 1, 12, tzinfo=datetime.UTC)
-    params = {p.name: p for p in query_parameters({
-        "flag": True,
-        "n": 3,
-        "x": 1.5,
-        "money": decimal.Decimal("2.50"),
-        "s": "tartu",
-        "raw": b"\x00",
-        "at": when,
-        "local": when.replace(tzinfo=None),
-        "day": datetime.date(2026, 3, 1),
-        "time": datetime.time(8),
-        "sites": ["tartu", "parnu"],
-    })}
-    assert {name: p.type_ for name, p in params.items() if isinstance(p, bigquery.ScalarQueryParameter)} == {
-        "flag": "BOOL",
-        "n": "INT64",
-        "x": "FLOAT64",
-        "money": "NUMERIC",
-        "s": "STRING",
-        "raw": "BYTES",
-        "at": "TIMESTAMP",
-        "local": "DATETIME",
-        "day": "DATE",
-        "time": "TIME",
+def query_result(result):
+    return {
+        "rows": result.frame.to_dict("records"),
+        "bytes_estimated": result.bytes_estimated,
+        "bytes_billed": result.bytes_billed,
+        "offline": result.offline,
     }
-    assert isinstance(params["sites"], bigquery.ArrayQueryParameter)
-    assert (params["sites"].array_type, params["sites"].values) == ("STRING", ["tartu", "parnu"])
 
 
-@then("values without a bigquery type are refused")
-def values_without_a_bigquery_type_are_refused():
-    """Every case of the parametrized test this was, in turn."""
-    for value in [None, [], [1, "a"], object()]:
-        value = value.values[0] if type(value).__name__ == "ParameterSet" else value
-        _case_values_without_a_bigquery_type_are_refused(value=value)
+def values_of(datatable):
+    """The table's parameters: a value that reads as JSON is that JSON, "date D" the date D, else text."""
+    values = {}
+    for name, cell in datatable[1:]:
+        if cell.startswith("date "):
+            values[name] = datetime.date.fromisoformat(cell.removeprefix("date "))
+            continue
+        try:
+            values[name] = json.loads(cell)
+        except ValueError:
+            values[name] = cell
+    return values
 
 
-def _case_values_without_a_bigquery_type_are_refused(value):
-    with pytest.raises(QueryError):
-        query_parameters({"v": value})
-
-
-@then("values go as query parameters never into the sql")
-def values_go_as_query_parameters_never_into_the_sql(queries):
-    client = FakeClient()
-    sneaky = "x' OR '1'='1"
-    result = Runner(client, queries=queries, offline=False).run(
-        "costs", site=sneaky, start=datetime.date(2026, 3, 1), end=datetime.date(2026, 3, 31)
+def runner(ctx):
+    return Runner(
+        getattr(ctx, "bigquery", None),
+        queries=ctx.directory / "queries",
+        samples=ctx.directory / "samples",
+        offline=getattr(ctx, "offline", None),
+        **({"max_bytes_billed": ctx.cap} if hasattr(ctx, "cap") else {}),
     )
-    sqls = {sql for sql, _ in client.jobs}
-    assert sqls == {(queries / "costs.sql").read_text()}
-    assert sneaky not in sqls.pop()
-    dry, real = (config for _, config in client.jobs)
-    for config in (dry, real):
-        values = {p.name: p.value for p in config.query_parameters}
-        assert values == {"site": sneaky, "start": datetime.date(2026, 3, 1), "end": datetime.date(2026, 3, 31)}
-    assert result.bytes_estimated == 1000 and result.bytes_billed == 1000 and not result.offline
-    assert list(result.frame["n"]) == [1]
 
 
-@then("a dry run comes first and the byte cap is set")
-def a_dry_run_comes_first_and_the_byte_cap_is_set(queries):
-    client = FakeClient()
-    Runner(client, queries=queries, offline=False, max_bytes_billed=5000).run(
-        "costs", site="a", start=datetime.date(2026, 1, 1), end=datetime.date(2026, 1, 2)
-    )
-    dry, real = (config for _, config in client.jobs)
-    assert dry.dry_run is True and dry.use_query_cache is False
-    assert real.dry_run is not True and real.maximum_bytes_billed == 5000
+@given(parsers.parse("a BigQuery that scans {scanned:d} bytes"))
+def a_bigquery(ctx, scanned):
+    ctx.bigquery, ctx.offline = FakeClient(scanned), False
 
 
-@then("the cap defaults to a gibibyte")
-def the_cap_defaults_to_a_gibibyte(queries):
-    client = FakeClient()
-    Runner(client, queries=queries, offline=False).run("costs", site="a", start="x", end="y")
-    assert client.jobs[-1][1].maximum_bytes_billed == DEFAULT_MAX_BYTES == 1024**3
+@given(parsers.parse("the byte cap is {cap:d}"))
+def the_byte_cap(ctx, cap):
+    ctx.cap = cap
 
 
-@then("a query over the cap never runs")
-def a_query_over_the_cap_never_runs(queries):
-    client = FakeClient(scanned=10_000)
-    runner = Runner(client, queries=queries, offline=False, max_bytes_billed=9_999)
-    with pytest.raises(BytesCapExceeded) as raised:
-        runner.run("costs", site="a", start="x", end="y")
-    assert (raised.value.estimate, raised.value.cap) == (10_000, 9_999)
-    assert [config.dry_run for _, config in client.jobs] == [True]
+@given("the samples are used, not BigQuery")
+def samples_used(ctx):
+    ctx.offline = True
 
 
-@then("dry run reports bytes")
-def dry_run_reports_bytes(queries):
-    assert Runner(FakeClient(scanned=42), queries=queries, offline=False).dry_run("costs", site="a", start="x", end="y") == 42
-
-
-@then("parameters must match the sql")
-def parameters_must_match_the_sql(queries):
-    """Every case of the parametrized test this was, in turn."""
-    for case0 in [
-        ({"site": "a", "start": "x"}, "no value for end"),
-        ({"site": "a", "start": "x", "end": "y", "limit": 3}, "no @parameter for limit"),
-    ]:
-        case0 = case0.values if type(case0).__name__ == "ParameterSet" else case0
-        _case_parameters_must_match_the_sql(values=case0[0], message=case0[1], queries=queries)
-
-
-def _case_parameters_must_match_the_sql(queries, values, message):
-    client = FakeClient()
-    with pytest.raises(QueryError, match=message):
-        Runner(client, queries=queries, offline=False).run("costs", **values)
-    assert client.jobs == []
-
-
-@then("offline reads the sample and never makes a client")
-def offline_reads_the_sample_and_never_makes_a_client(queries, tmp_path, monkeypatch):
-    samples = tmp_path / "samples"
-    samples.mkdir()
-    (samples / "costs.csv").write_text("day,amount\n2026-03-01,4.5\n")
-    monkeypatch.setenv("SUSTENAUT_DATA", "offline")
+@given("BigQuery may not be reached")
+def bigquery_unreachable(monkeypatch):
     monkeypatch.setattr(bigquery, "Client", lambda *a, **k: pytest.fail("offline made a client"))
-    runner = Runner(queries=queries, samples=samples)
-    assert runner.offline
-    assert runner.dry_run("costs", site="a", start="x", end="y") == 0
-    result = runner.run("costs", site="a", start="x", end="y")
-    assert result.offline and result.bytes_billed == 0
-    assert result.frame.to_dict("records") == [{"day": "2026-03-01", "amount": 4.5}]
-    with pytest.raises(QueryError):
-        runner.run("costs", site="a")
 
 
-@then("offline reads json and parquet samples")
-def offline_reads_json_and_parquet_samples(queries, tmp_path):
-    """Every case of the parametrized test this was, in turn."""
-    for suffix in [".json", ".parquet"]:
-        suffix = suffix.values[0] if type(suffix).__name__ == "ParameterSet" else suffix
-        case_dir = tmp_path / f"case-{len(list(tmp_path.iterdir()))}"
-        case_dir.mkdir()
-        _case_offline_reads_json_and_parquet_samples(suffix=suffix, queries=queries, tmp_path=case_dir)
+@given("BigQuery's clients are counted")
+def clients_counted(ctx, monkeypatch):
+    ctx.made = []
+    monkeypatch.setattr(bigquery, "Client", lambda: ctx.made.append(1) or "client")
 
 
-def _case_offline_reads_json_and_parquet_samples(queries, tmp_path, suffix):
-    samples = tmp_path / "samples"
-    samples.mkdir()
-    frame = pd.DataFrame({"n": [1, 2]})
-    getattr(frame, "to_json" if suffix == ".json" else "to_parquet")(samples / f"costs{suffix}")
-    result = Runner(queries=queries, samples=samples, offline=True).run("costs", site="a", start="x", end="y")
-    assert list(result.frame["n"]) == [1, 2]
+@given(parsers.parse('a sample "{file}" whose column "{column}" holds 1 and 2'))
+def a_sample(ctx, file, column):
+    (ctx.directory / "samples").mkdir(exist_ok=True)
+    frame = pd.DataFrame({column: [1, 2]})
+    getattr(frame, "to_json" if file.endswith(".json") else "to_parquet")(ctx.directory / "samples" / file)
 
 
-@then("offline without a sample says so")
-def offline_without_a_sample_says_so(queries, tmp_path):
-    with pytest.raises(FileNotFoundError, match="no sample for costs"):
-        Runner(queries=queries, samples=tmp_path, offline=True).run("costs", site="a", start="x", end="y")
+@when("the parameters of this SQL are read:")
+def parameters_of_sql(ctx, docstring):
+    ctx.attempt(lambda: sorted(parameter_names(docstring)))
 
 
-@then("online is the default and makes its client on first use")
-def online_is_the_default_and_makes_its_client_on_first_use(monkeypatch):
-    monkeypatch.delenv("SUSTENAUT_DATA", raising=False)
-    made = []
-    monkeypatch.setattr(bigquery, "Client", lambda: made.append(1) or "client")
-    runner = Runner()
-    assert not runner.offline and made == []
-    assert runner.client == "client" and runner.client == "client" and made == [1]
+@when(parsers.parse("{value} becomes a query parameter"))
+def becomes_a_parameter(ctx, value):
+    ctx.attempt(lambda: [parameter(p) for p in query_parameters({"v": VALUES[value]})])
 
 
-@then("the repository queries have samples")
-def the_repository_queries_have_samples():
-    """Every case of the parametrized test this was, in turn."""
-    for case0 in [
-        ("calls_per_day", {"start": "2026-10-04", "end": "2026-11-02", "projects": ["visit_ee"]}, {"start", "end", "projects"}),
-        ("status_per_day", {"start": "2026-10-04", "end": "2026-11-02", "projects": ["visit_ee"]}, {"start", "end", "projects"}),
-        ("table_storage", {"tables": ["calls"]}, {"tables"}),
-    ]:
-        case0 = case0.values if type(case0).__name__ == "ParameterSet" else case0
-        _case_the_repository_queries_have_samples(name=case0[0], values=case0[1], wanted=case0[2])
+@when(parsers.parse('the query "{name}" runs with:'))
+def query_runs(ctx, name, datatable):
+    ctx.attempt(lambda: query_result(runner(ctx).run(name, **values_of(datatable))))
 
 
-def _case_the_repository_queries_have_samples(name, values, wanted):
-    runner = Runner(offline=True)
-    assert parameter_names(runner.sql(name)) == wanted
-    assert not runner.run(name, **values).frame.empty
+@when(parsers.parse('the query "{name}" is dry run with:'))
+def query_dry_runs(ctx, name, datatable):
+    ctx.attempt(lambda: runner(ctx).dry_run(name, **values_of(datatable)))
 
 
-@then("the billing query has no sample until the export exists")
-def the_billing_query_has_no_sample_until_the_export_exists():
-    runner = Runner(offline=True)
-    assert parameter_names(runner.sql("billing")) == {"month"}
-    with pytest.raises(FileNotFoundError):
-        runner.run("billing", month="202611")
+@when("a runner is made")
+def a_runner_is_made(ctx):
+    ctx.attempt(lambda: {"offline": Runner().offline, "clients made": len(ctx.made)})
+
+
+@when("a runner's client is asked for twice")
+def client_asked_twice(ctx):
+    def twice():
+        made = Runner()
+        return {"clients": [made.client, made.client], "clients made": len(ctx.made)}
+
+    ctx.attempt(twice)
+
+
+@when(parsers.parse('the repository\'s query "{name}" runs offline with "{values}"'))
+def repository_query_runs(ctx, name, values):
+    def run():
+        made = Runner(offline=True)
+        found = sorted(parameter_names(made.sql(name)))
+        return {"parameters": found, "empty": made.run(name, **json.loads(values)).frame.empty}
+
+    ctx.attempt(run)
+
+
+@when(parsers.parse('the parameters of the repository\'s query "{name}" are read'))
+def repository_parameters(ctx, name):
+    ctx.attempt(lambda: sorted(parameter_names(Runner(offline=True).sql(name))))
+
+
+def job(sql, config):
+    return {
+        "sql": sql,
+        "dry_run": config.dry_run,
+        "use_query_cache": config.use_query_cache,
+        "maximum_bytes_billed": config.maximum_bytes_billed,
+        "parameters": {p.name: {"type": p.type_, "value": str(p.value)} for p in config.query_parameters},
+    }
+
+
+@then("BigQuery was asked these jobs:")
+def bigquery_jobs(ctx, docstring):
+    asked = [job(sql, config) for sql, config in ctx.bigquery.jobs]
+    assert asked == json.loads(docstring), json.dumps(asked, indent=2)

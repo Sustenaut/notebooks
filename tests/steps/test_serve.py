@@ -1,12 +1,13 @@
 """The site behind oauth2-proxy: the access gate on each request and websocket, the front page, the notebooks."""
 
-import asyncio
+import json
 
 import pytest
+from pubtest.http import asgi
+from pytest_bdd import given, parsers, scenarios, then, when
 
 from notebooks_lib import serve
-from notebooks_lib.access_check import DEGRADED, NO_ROLE, OK, SIGN_IN, UNAVAILABLE, Decision
-from pytest_bdd import scenarios, then
+from notebooks_lib.access_check import DEGRADED, NO_ROLE, OK, Decision
 
 scenarios("serve.feature")
 
@@ -14,8 +15,8 @@ scenarios("serve.feature")
 class Check:
     """An access check that answers from a table of people, and records what it was asked."""
 
-    def __init__(self, answers):
-        self.answers = answers
+    def __init__(self):
+        self.answers = {}
         self.asked = []
 
     def check(self, person, token, write=False):
@@ -23,124 +24,98 @@ class Check:
         return self.answers.get(person, Decision(False, NO_ROLE))
 
 
-def call(app, scope_type="http", path="/", headers=(), query=b""):
-    """Run one request (or websocket connect) through `app`; the messages it sent back."""
-    scope = {"type": scope_type, "path": path, "query_string": query, "headers": list(headers)}
+@pytest.fixture
+def check():
+    return Check()
+
+
+@pytest.fixture
+def http_client(ctx):
+    return lambda method, path, headers, body: asgi(ctx.app)(method, path, headers, body)
+
+
+def notebooks(reached):
+    """What stands behind the gate: notebooks that answer "notebook", and record each scope that reaches them."""
+
+    async def app(scope, receive, send):
+        reached.append(scope["type"])
+        if scope["type"] == "websocket":
+            await send({"type": "websocket.accept"})
+        elif scope["type"] == "http":
+            await send({"type": "http.response.start", "status": 200, "headers": []})
+            await send({"type": "http.response.body", "body": b"notebook"})
+
+    return app
+
+
+@given(parsers.parse('the access check answers "{reason}" for "{email}"'))
+def check_answers(check, reason, email):
+    allowed = reason in (OK, DEGRADED)
+    check.answers[email] = Decision(allowed, reason, frozenset({"notebooks"}) if allowed else frozenset())
+
+
+@given("the notebooks behind the gate")
+def behind_the_gate(ctx, check):
+    ctx.reached = []
+    ctx.app = serve.AccessGate(notebooks(ctx.reached), check)
+
+
+@given("the site built from the repository's notebooks")
+def built_site(ctx, check):
+    ctx.app = serve.build(check)
+
+
+@given("the front page of the notebooks in the scratch directory")
+def front_page(ctx):
+    ctx.app = serve.index(serve.notebook_paths(ctx.directory))
+
+
+@when(parsers.parse('a websocket opens "{path}"'))
+def websocket(ctx, path):
+    headers = [(k.lower().encode(), v.encode()) for k, v in getattr(ctx, "headers", {}).items()]
+    scope = {"type": "websocket", "path": path, "query_string": b"", "headers": headers}
     sent = []
 
     async def receive():
-        return {"type": "websocket.connect"} if scope_type == "websocket" else {"type": "http.request"}
+        return {"type": "websocket.connect"}
 
     async def send(message):
         sent.append(message)
 
-    asyncio.run(app(scope, receive, send))
-    return sent
+    async def connect():
+        await ctx.app(scope, receive, send)
+        return sent
+
+    ctx.attempt(connect)
 
 
-async def downstream(scope, receive, send):
-    if scope["type"] == "websocket":
-        await send({"type": "websocket.accept"})
-    else:
-        await send({"type": "http.response.start", "status": 200, "headers": []})
-        await send({"type": "http.response.body", "body": b"notebook"})
+@when("the server starts the site")
+def lifespan(ctx):
+    async def start():
+        await ctx.app({"type": "lifespan"}, None, None)
+        return ctx.reached
+
+    ctx.attempt(start)
 
 
-def who(email, token="t"):
-    return [(b"x-forwarded-email", email.encode()), (b"x-forwarded-access-token", token.encode())]
+@when("the notebooks in the scratch directory are given their addresses")
+def addresses(ctx):
+    ctx.attempt(lambda: list(serve.notebook_paths(ctx.directory)))
 
 
-GATE_ANSWERS = {
-    "member@sustenaut.eu": Decision(True, OK, frozenset({"notebooks"})),
-    "reading@sustenaut.eu": Decision(True, DEGRADED, frozenset({"notebooks"})),
-    "gone@sustenaut.eu": Decision(False, SIGN_IN),
-    "later@sustenaut.eu": Decision(False, UNAVAILABLE),
-}
+@when("the site is made from the environment")
+def from_environment(ctx):
+    ctx.attempt(serve.from_environment)
 
 
-@then("someone with the role gets through and every request is a read")
-def someone_with_the_role_gets_through_and_every_request_is_a_read():
-    check = Check(GATE_ANSWERS)
-    gate = serve.AccessGate(downstream, check)
-    assert call(gate, path="/site_costs", headers=who("member@sustenaut.eu", "tok"))[1]["body"] == b"notebook"
-    assert call(gate, "websocket", "/site_costs/ws", who("member@sustenaut.eu"))[0]["type"] == "websocket.accept"
-    assert call(gate, path="/x", headers=who("reading@sustenaut.eu"))[0]["status"] == 200
-    assert check.asked[0] == ("member@sustenaut.eu", "tok", False)
-    assert all(write is False for _, _, write in check.asked)
+@when(parsers.parse('the site module is asked for "{name}"'))
+def module_attribute(ctx, name):
+    ctx.attempt(lambda: getattr(serve, name))
 
 
-@then("without the role the site refuses")
-def without_the_role_the_site_refuses():
-    gate = serve.AccessGate(downstream, Check(GATE_ANSWERS))
-    start, body = call(gate, path="/site_costs", headers=who("stranger@sustenaut.eu"))
-    assert start["status"] == 403 and b"team access page" in body["body"]
-    assert call(gate, "websocket", "/ws", who("stranger@sustenaut.eu")) == [{"type": "websocket.close", "code": 4403}]
-
-
-@then("an ended session or no email is sent to sign in keeping where it was")
-def an_ended_session_or_no_email_is_sent_to_sign_in_keeping_where_it_was():
-    gate = serve.AccessGate(downstream, Check(GATE_ANSWERS))
-    start = call(gate, path="/site_costs/", headers=who("gone@sustenaut.eu"), query=b"a=1")[0]
-    assert start["status"] == 302
-    assert dict(start["headers"])[b"location"] == b"/oauth2/sign_in?rd=%2Fsite_costs%2F%3Fa%3D1"
-    assert dict(call(gate, path="/")[0]["headers"])[b"location"] == b"/oauth2/sign_in?rd=%2F"
-    assert call(gate, "websocket", "/ws") == [{"type": "websocket.close", "code": 4401}]
-
-
-@then("when auth cannot vouch the site says try later")
-def when_auth_cannot_vouch_the_site_says_try_later():
-    gate = serve.AccessGate(downstream, Check(GATE_ANSWERS))
-    assert call(gate, path="/x", headers=who("later@sustenaut.eu"))[0]["status"] == 503
-    assert call(gate, "websocket", "/ws", who("later@sustenaut.eu")) == [{"type": "websocket.close", "code": 4503}]
-
-
-@then("health is open and lifespan passes through")
-def health_is_open_and_lifespan_passes_through():
-    check = Check({})
-    gate = serve.AccessGate(downstream, check)
-    start, body = call(gate, path="/healthz")
-    assert (start["status"], body["body"]) == (200, b"ok") and check.asked == []
-    seen = []
-
-    async def lifespan_app(scope, receive, send):
-        seen.append(scope["type"])
-
-    asyncio.run(serve.AccessGate(lifespan_app, check)({"type": "lifespan"}, None, None))
-    assert seen == ["lifespan"]
-
-
-@then("each notebook has its address and the front page links them")
-def each_notebook_has_its_address_and_the_front_page_links_them(tmp_path):
-    (tmp_path / "site_costs.py").write_text("")
-    (tmp_path / "b.py").write_text("")
-    (tmp_path / "data.json").write_text("{}")
-    paths = serve.notebook_paths(tmp_path)
-    assert list(paths) == ["/b", "/site_costs"]
-    start, body = call(serve.index(paths))
-    assert dict(start["headers"])[b"content-type"].startswith(b"text/html")
-    assert b'<a href="/site_costs">Site costs</a>' in body["body"]
-
-
-@then("the built site serves the front page and the notebooks behind the gate")
-def the_built_site_serves_the_front_page_and_the_notebooks_behind_the_gate():
-    site = serve.build(Check({"member@sustenaut.eu": Decision(True, OK, frozenset({"notebooks"}))}))
-    assert b"/site_costs" in call(site, path="/", headers=who("member@sustenaut.eu"))[1]["body"]
-    assert call(site, path="/", headers=who("stranger@sustenaut.eu"))[0]["status"] == 403
-    assert call(site, path="/site_costs", headers=who("stranger@sustenaut.eu"))[0]["status"] == 403
-
-
-@then("the site needs its sign in client")
-def the_site_needs_its_sign_in_client(monkeypatch):
-    monkeypatch.delenv("NOTEBOOKS_CLIENT_ID", raising=False)
-    monkeypatch.delenv("NOTEBOOKS_CLIENT_SECRET", raising=False)
-    with pytest.raises(RuntimeError, match="make apps"):
-        serve.from_environment()
-    with pytest.raises(RuntimeError):
-        _ = serve.app
-    with pytest.raises(AttributeError):
-        _ = serve.not_a_name
-    monkeypatch.setenv("NOTEBOOKS_CLIENT_ID", "id")
-    monkeypatch.setenv("NOTEBOOKS_CLIENT_SECRET", "secret")
-    gate = serve.app
-    assert isinstance(gate, serve.AccessGate)
-    assert (gate.check.client_id, gate.check.role, gate.check.realm_url) == ("id", "notebooks", serve.REALM)
+@then("the access check was asked:")
+def asked(check, datatable):
+    header, *rows = datatable
+    wanted = [(row[0], row[1], json.loads(row[2])) for row in rows]
+    assert header == ["person", "token", "write"], header
+    assert check.asked == wanted, check.asked

@@ -1,97 +1,85 @@
 import json
 
-import pytest
-from jsonschema.exceptions import SchemaError
+from pytest_bdd import given, parsers, scenarios, when
 
-from notebooks_lib.forms import FORMS, Form, FormError, load_form
-from notebooks_lib.widget import BUNDLE, SchemaFormWidget
-from pytest_bdd import scenarios, then
+from notebooks_lib.costs import model_defaults
+from notebooks_lib.forms import FORMS, Form, load_form
+from notebooks_lib.widget import SchemaFormWidget
 
 scenarios("forms.feature")
 
-
-@pytest.fixture
-def form():
-    return load_form("site_costs")
+LAYOUTS = {"VerticalLayout", "HorizontalLayout", "Group", "Categorization"}
 
 
-@then("a form loads its schema and ui schema")
-def a_form_loads_its_schema_and_ui_schema(form):
-    assert form.name == "site_costs"
-    assert form.schema["required"] == ["period", "projects"]
-    assert form.uischema["type"] == "Group"
+def checked(form, values):
+    errors = form.errors(values)
+    return {
+        "errors": [{"path": e.path, "message": e.message} for e in errors],
+        "paths": [e.path for e in errors],
+        "kinds": sorted({type(e).__name__ for e in errors}),
+        "valid": form.is_valid(values),
+    }
 
 
-@then("valid values pass")
-def valid_values_pass(form):
-    values = {"period": {"start": "2026-03-01", "end": "2026-03-31"}, "projects": ["visit_ee"]}
-    assert form.errors(values) == []
-    assert form.is_valid(values)
+@given("the values are the cost model's defaults")
+def defaults(ctx):
+    ctx.values = model_defaults()
 
 
-@then("errors name the value by its path")
-def errors_name_the_value_by_its_path(form):
-    errors = form.errors({"projects": ["riga"], "period": {"start": "not a date"}})
-    assert [e.path for e in errors] == ["/period", "/period/start", "/projects/0"]
-    assert all(isinstance(e, FormError) and e.message for e in errors)
-    assert "'end' is a required property" in errors[0].message
-    assert not form.is_valid({})
-    assert [e.path for e in form.errors({})] == ["", ""]
+@given(parsers.parse('the values are the cost model\'s defaults, but for "{changes}"'))
+def defaults_but(ctx, changes):
+    ctx.values = model_defaults() | json.loads(changes)
 
 
-@then("the model form accepts the data files")
-def the_model_form_accepts_the_data_files():
-    from notebooks_lib.costs import model_defaults
-
-    model = load_form("site_costs.model")
-    assert model.uischema["type"] == "Categorization"
-    assert model.errors(model_defaults()) == []
-    bad = model_defaults() | {"load_now": 200, "multipliers": {"pub": 0}}
-    assert {e.path for e in model.errors(bad)} == {"/load_now", "/multipliers/pub"}
+@given(parsers.parse('the form "{name}" whose schema is "{schema}" and ui schema is "{uischema}"'))
+def a_form(ctx, name, schema, uischema):
+    ctx.form = Form(name, json.loads(schema), json.loads(uischema))
 
 
-@then("a schema that is not json schema is refused")
-def a_schema_that_is_not_json_schema_is_refused(tmp_path):
-    (tmp_path / "bad.form.json").write_text(json.dumps({"schema": {"type": 5}, "uischema": {}}))
-    with pytest.raises(SchemaError):
-        load_form("bad", tmp_path)
+@given(parsers.parse('the widget\'s bundle is "{name}" in the scratch directory'))
+def bundle_at(ctx, monkeypatch, name):
+    monkeypatch.setattr("notebooks_lib.widget.BUNDLE", ctx.directory / name)
 
 
-@then("a missing form is an error")
-def a_missing_form_is_an_error(tmp_path):
-    with pytest.raises(FileNotFoundError):
-        load_form("nothing", tmp_path)
+@when(parsers.parse('the form "{name}" is loaded'))
+def form_loaded(ctx, name):
+    ctx.attempt(lambda: load_form(name))
 
 
-@then("a form becomes a widget whose value is its data")
-def a_form_becomes_a_widget_whose_value_is_its_data(form):
-    widget = form.widget({"projects": ["visit_ee"]})
-    assert isinstance(widget, SchemaFormWidget)
-    assert (widget.schema, widget.uischema, widget.value, widget.errors) == (
-        form.schema,
-        form.uischema,
-        {"projects": ["visit_ee"]},
-        [],
-    )
-    assert Form("x", {}, {}).widget().value == {}
+@when(parsers.parse('the form "{name}" is loaded from the scratch directory'))
+def form_loaded_from(ctx, name):
+    ctx.attempt(lambda: load_form(name, ctx.directory))
 
 
-@then("the widget needs its built bundle")
-def the_widget_needs_its_built_bundle(monkeypatch, tmp_path):
-    assert BUNDLE.exists(), "run `make widget` first"
-    monkeypatch.setattr("notebooks_lib.widget.BUNDLE", tmp_path / "missing.js")
-    with pytest.raises(FileNotFoundError, match="make widget"):
-        SchemaFormWidget()
+@when(parsers.parse('the form "{name}" checks the values "{values}"'))
+def form_checks_given(ctx, name, values):
+    ctx.attempt(lambda: checked(load_form(name), json.loads(values)))
 
 
-@then("every form is valid json schema with a ui schema")
-def every_form_is_valid_json_schema_with_a_ui_schema():
-    """Every case of the parametrized test this was, in turn."""
-    for path in sorted(FORMS.glob("*.form.json")):
-        path = path.values[0] if type(path).__name__ == "ParameterSet" else path
-        _case_every_form_is_valid_json_schema_with_a_ui_schema(path=path)
+@when(parsers.parse('the form "{name}" checks the values'))
+def form_checks(ctx, name):
+    ctx.attempt(lambda: checked(load_form(name), ctx.values))
 
 
-def _case_every_form_is_valid_json_schema_with_a_ui_schema(path):
-    form = load_form(path.name.removesuffix(".form.json"))
-    assert form.uischema["type"] in {"VerticalLayout", "HorizontalLayout", "Group", "Categorization"}
+@when(parsers.parse('the form becomes a widget starting from "{values}"'))
+def becomes_widget_from(ctx, values):
+    ctx.attempt(lambda: ctx.form.widget(json.loads(values)))
+
+
+@when("the form becomes a widget")
+def becomes_widget(ctx):
+    ctx.attempt(lambda: ctx.form.widget())
+
+
+@when("the widget is made")
+def widget_made(ctx):
+    ctx.attempt(SchemaFormWidget)
+
+
+@when("every form is loaded")
+def every_form(ctx):
+    def load():
+        forms = [load_form(path.name.removesuffix(".form.json")) for path in sorted(FORMS.glob("*.form.json"))]
+        return {"not laid out": [form.name for form in forms if form.uischema["type"] not in LAYOUTS]}
+
+    ctx.attempt(load)

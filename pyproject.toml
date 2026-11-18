@@ -19,6 +19,7 @@ dependencies = [
 # The tests, at the versions tests/requirements-pubrules.txt pins for every pubrules repository.
 dev = [
   "hypothesis==6.170.5",
+  "pubtest",
   "pytest==9.0.3",
   "pytest-bdd==8.1.0",
   "pytest-cov>=7.1.0",
@@ -32,6 +33,9 @@ build-backend = "uv_build"
 [tool.uv.build-backend]
 module-name = "notebooks_lib"
 module-root = ""
+
+[tool.uv.sources]
+pubtest = { url = "https://github.com/Sustenaut/pubtest/releases/download/v0.2.1/pubtest-0.2.1-py3-none-any.whl" }
 
 [tool.coverage.run]
 source = ["notebooks_lib"]
