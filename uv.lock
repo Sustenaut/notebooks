@@ -1294,6 +1294,24 @@ wheels = [
 ]
 
 [[package]]
+name = "pubtest"
+version = "0.2.1"
+source = { url = "https://github.com/Sustenaut/pubtest/releases/download/v0.2.1/pubtest-0.2.1-py3-none-any.whl" }
+dependencies = [
+    { name = "pytest" },
+    { name = "pytest-bdd" },
+]
+wheels = [
+    { url = "https://github.com/Sustenaut/pubtest/releases/download/v0.2.1/pubtest-0.2.1-py3-none-any.whl", hash = "sha256:ca36ada5136c99a0fe717d027c655fbfc1e57a60d76bbbb5fb215b6376abf914" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pytest", specifier = ">=8" },
+    { name = "pytest-bdd", specifier = ">=8.1" },
+]
+
+[[package]]
 name = "pure-eval"
 version = "0.2.4"
 source = { registry = "https://pypi.org/simple" }
@@ -1701,6 +1719,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "hypothesis" },
+    { name = "pubtest" },
     { name = "pytest" },
     { name = "pytest-bdd" },
     { name = "pytest-cov" },
@@ -1723,6 +1742,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "hypothesis", specifier = "==6.170.5" },
+    { name = "pubtest", url = "https://github.com/Sustenaut/pubtest/releases/download/v0.2.1/pubtest-0.2.1-py3-none-any.whl" },
     { name = "pytest", specifier = "==9.0.3" },
     { name = "pytest-bdd", specifier = "==8.1.0" },
     { name = "pytest-cov", specifier = ">=7.1.0" },
